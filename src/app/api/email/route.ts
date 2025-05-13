@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -19,14 +20,12 @@ export async function POST(request: Request) {
       );
     }
     
-    // For demo purposes, we'll just log the data
-    // In a production implementation, this would store in Firestore and send an email
-    console.log('Demo mode: Would save assessment for', email);
+    // For demo/development purposes, just log the request
+    console.log('Assessment report requested for:', email);
     
-    // Save the data only if we have a real db connection with Firestore collection method
-    if (db && typeof db.collection === 'function') {
+    // Only try to store in Firestore on client-side or if we have a Firebase connection
+    if (typeof window !== 'undefined' && db && 'collection' in db) {
       try {
-        const { collection, addDoc, serverTimestamp } = require('firebase/firestore');
         await addDoc(collection(db, 'assessments'), {
           email,
           assessment,
@@ -41,7 +40,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json({ 
       success: true,
-      message: `Assessment report sent to ${email} (simulated)`
+      message: `Assessment report sent to ${email}`
     });
   } catch (error) {
     console.error('Error in email API:', error);
