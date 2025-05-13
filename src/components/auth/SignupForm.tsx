@@ -55,6 +55,10 @@ export default function SignupForm({ onSuccess, onLoginClick }: SignupFormProps)
     setIsLoading(true);
 
     try {
+      if (typeof window === 'undefined') {
+        throw new Error('Google sign-in is only available in browser environments');
+      }
+      
       await signInWithGoogle();
       if (onSuccess) {
         onSuccess();
@@ -62,6 +66,7 @@ export default function SignupForm({ onSuccess, onLoginClick }: SignupFormProps)
         router.push('/dashboard');
       }
     } catch (err: any) {
+      console.error('Google signup error:', err);
       setError(err.message || 'Failed to sign up with Google. Please try again.');
     } finally {
       setIsLoading(false);

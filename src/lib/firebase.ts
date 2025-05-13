@@ -18,9 +18,14 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
-let googleProvider: GoogleAuthProvider;
 
-if (typeof window !== 'undefined') {
+// We'll initialize this only on the client side when needed
+let googleProvider: GoogleAuthProvider | null = null;
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+if (isBrowser) {
   try {
     // Initialize Firebase
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -31,15 +36,26 @@ if (typeof window !== 'undefined') {
     // Initialize Firestore
     db = getFirestore(app);
     
-    // Initialize Google Authentication Provider
-    googleProvider = new GoogleAuthProvider();
-    googleProvider.setCustomParameters({ prompt: 'select_account' });
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }
 } else {
-  // Handling for server-side rendering
+  // Handling for server-side rendering - these won't be used
   console.warn('Firebase is not initialized on server-side');
 }
 
-export { app, auth, db, googleProvider };
+// Helper function to get Google provider
+export const getGoogleProvider = (): GoogleAuthProvider => {
+  if (!isBrowser) {
+    throw new Error('GoogleAuthProvider can only be used in browser environment');
+  }
+  
+  if (!googleProvider) {
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+  }
+  
+  return googleProvider;
+};
+
+export { app, auth, db };

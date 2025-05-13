@@ -7,7 +7,8 @@ import {
   updateProfile,
   User
 } from 'firebase/auth';
-import { auth, googleProvider } from './firebase';
+import { auth } from './firebase';
+import { getGoogleProvider } from './firebase';
 
 // Register a new user
 export async function registerUser(email: string, password: string, displayName?: string) {
@@ -38,6 +39,11 @@ export async function signIn(email: string, password: string) {
 // Sign in with Google
 export async function signInWithGoogle() {
   try {
+    if (typeof window === 'undefined') {
+      throw new Error('Google sign-in is only available in browser environments');
+    }
+    
+    const googleProvider = getGoogleProvider();
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
