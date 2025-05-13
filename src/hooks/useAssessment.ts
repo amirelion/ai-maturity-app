@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Question, Response, UserInfo, AssessmentResult } from '@/types/assessment';
 import { allQuestions, userInfoQuestions, productivityQuestions, valueCreationQuestions, businessModelQuestions, closingQuestions } from '@/lib/questions';
 import { questionsBank } from '@/config/ai-config';
@@ -48,6 +48,8 @@ export function useAssessment() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(userInfoQuestions[0]);
   const [firestoreAvailable, setFirestoreAvailable] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   
   // New state variables for Firebase integration
   const { currentUser } = useAuth();
@@ -75,9 +77,9 @@ export function useAssessment() {
   
   // Calculate progress
   const progress = Math.min(Math.round((currentQuestionIndex / (userInfoQuestions.slice(0, MAX_USER_INFO_QUESTIONS).length + 
-                                               productivityQuestions.slice(0, 3).length + 
-                                               valueCreationQuestions.slice(0, 3).length + 
-                                               businessModelQuestions.slice(0, 3).length)) * 100), 100);
+                                             productivityQuestions.slice(0, 3).length + 
+                                             valueCreationQuestions.slice(0, 3).length + 
+                                             businessModelQuestions.slice(0, 3).length)) * 100), 100);
   
   // Check if the user has an in-progress assessment or initialize a new one
   useEffect(() => {
@@ -543,8 +545,32 @@ export function useAssessment() {
     }
   };
   
+  // Stop any currently playing audio
+  const stopAudio = useCallback(() => {
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.stop();
+        audioSourceRef.current = null;
+      } catch (err) {
+        console.error('Error stopping audio:', err);
+      }
+    }
+    
+    setIsAudioPlaying(false);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(createAudioEvent('audio-playback-end'));
+    }
+  }, []);
+  
   // Play audio for assistant responses (if using voice mode)
-  const playAssistantResponse = async (text: string) => {
+  const playAssistantResponse = useCallback(async (text: string) => {
+    // If audio is already playing, stop it first
+    if (isAudioPlaying) {
+      stopAudio();
+      // Add a small delay to ensure clean audio context
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
     try {
       // Set audio playing state and dispatch event for components to react
       setIsAudioPlaying(true);
@@ -565,14 +591,27 @@ export function useAssessment() {
       }
       
       const audioArrayBuffer = await response.arrayBuffer();
+      
+      // Close any existing audio context to prevent memory leaks
+      if (audioContextRef.current) {
+        if (audioContextRef.current.state !== 'closed') {
+          await audioContextRef.current.close();
+        }
+        audioContextRef.current = null;
+      }
+      
+      // Create a new audio context
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      
       const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
       
       const source = audioContext.createBufferSource();
+      audioSourceRef.current = source;
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
-      source.start();
       
+      // Set up onended handler before starting playback
       return new Promise<void>((resolve) => {
         source.onended = () => {
           // Reset audio playing state and dispatch event
@@ -580,8 +619,12 @@ export function useAssessment() {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(createAudioEvent('audio-playback-end'));
           }
+          audioSourceRef.current = null;
           resolve();
         };
+        
+        // Start audio playback
+        source.start();
       });
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -590,9 +633,32 @@ export function useAssessment() {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(createAudioEvent('audio-playback-end'));
       }
+      audioSourceRef.current = null;
       return Promise.resolve(); // Continue even if audio fails
     }
-  };
+  }, [isAudioPlaying, stopAudio]);
+  
+  // Clean up audio resources on unmount
+  useEffect(() => {
+    return () => {
+      if (audioSourceRef.current) {
+        try {
+          audioSourceRef.current.stop();
+        } catch (err) {
+          // Ignore errors when stopping on unmount
+        }
+        audioSourceRef.current = null;
+      }
+      
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        try {
+          audioContextRef.current.close();
+        } catch (err) {
+          // Ignore errors when closing context on unmount
+        }
+      }
+    };
+  }, []);
   
   // Reset the assessment
   const resetAssessment = async () => {
@@ -658,6 +724,7 @@ export function useAssessment() {
     canForceComplete,
     forceCompleteAssessment,
     playAssistantResponse,
+    stopAudio,
     resetAssessment,
     assessmentId,
     firestoreAvailable,
