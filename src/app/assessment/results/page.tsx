@@ -60,32 +60,32 @@ export default function ResultsPage() {
         // Check if strengths and opportunities are the default placeholders
         // If they are, replace with more meaningful defaults
         if (parsedAssessment.productivity && 
-            parsedAssessment.productivity.strengths.some(s => s.includes('will be identified'))) {
+            parsedAssessment.productivity.strengths.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.productivity.strengths = defaultStrengths.productivity;
         }
         
         if (parsedAssessment.valueCreation && 
-            parsedAssessment.valueCreation.strengths.some(s => s.includes('will be identified'))) {
+            parsedAssessment.valueCreation.strengths.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.valueCreation.strengths = defaultStrengths.valueCreation;
         }
         
         if (parsedAssessment.businessModel && 
-            parsedAssessment.businessModel.strengths.some(s => s.includes('will be identified'))) {
+            parsedAssessment.businessModel.strengths.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.businessModel.strengths = defaultStrengths.businessModel;
         }
         
         if (parsedAssessment.productivity && 
-            parsedAssessment.productivity.opportunities.some(s => s.includes('will be identified'))) {
+            parsedAssessment.productivity.opportunities.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.productivity.opportunities = defaultOpportunities.productivity;
         }
         
         if (parsedAssessment.valueCreation && 
-            parsedAssessment.valueCreation.opportunities.some(s => s.includes('will be identified'))) {
+            parsedAssessment.valueCreation.opportunities.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.valueCreation.opportunities = defaultOpportunities.valueCreation;
         }
         
         if (parsedAssessment.businessModel && 
-            parsedAssessment.businessModel.opportunities.some(s => s.includes('will be identified'))) {
+            parsedAssessment.businessModel.opportunities.some((s: string) => s.includes('will be identified'))) {
           parsedAssessment.businessModel.opportunities = defaultOpportunities.businessModel;
         }
         
