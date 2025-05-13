@@ -5,6 +5,43 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { maturityFramework } from '@/config/ai-config'
 
+// Default strengths and opportunities if none are extracted from the analysis
+const defaultStrengths = {
+  productivity: [
+    'Initial adoption of AI productivity tools',
+    'Interest in enhancing efficiency through AI',
+    'Recognition of AI potential for team productivity'
+  ],
+  valueCreation: [
+    'Understanding of customer needs that AI could address',
+    'Awareness of AI's potential to enhance products and services',
+    'Early consideration of competitive positioning with AI'
+  ],
+  businessModel: [
+    'Leadership interest in AI's strategic potential',
+    'Openness to innovation and new approaches',
+    'Recognition of changing industry landscape'
+  ]
+};
+
+const defaultOpportunities = {
+  productivity: [
+    'Establish structured approach to AI tool adoption',
+    'Develop AI skills and literacy across teams',
+    'Create metrics to measure AI productivity impact'
+  ],
+  valueCreation: [
+    'Develop AI feature roadmap for products/services',
+    'Improve data infrastructure to support AI capabilities',
+    'Prototype AI enhancements with customer feedback'
+  ],
+  businessModel: [
+    'Conduct AI disruption assessment for your industry',
+    'Explore potential new revenue streams enabled by AI',
+    'Align leadership vision on AI strategic priorities'
+  ]
+};
+
 export default function ResultsPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -17,67 +54,85 @@ export default function ResultsPage() {
   useEffect(() => {
     const storedAssessment = localStorage.getItem('assessment')
     if (storedAssessment) {
-      setAssessment(JSON.parse(storedAssessment))
-    } else {
-      // If no assessment data found, generate some for demo purposes
-      const demoAssessment = {
-        userInfo: {
-          name: "Demo User",
-          role: "VP of Engineering",
-          industry: "Manufacturing",
-          orgSize: "Mid-sized"
-        },
-        productivity: {
-          score: 2.1,
-          level: 2,
-          strengths: [
-            'Some teams experimenting with AI tools',
-            'Leadership interest in AI adoption',
-            'Initial success with productivity pilots'
-          ],
-          opportunities: [
-            'Formalize AI governance structure',
-            'Develop comprehensive AI training program',
-            'Establish metrics to track AI impact'
-          ]
-        },
-        valueCreation: {
-          score: 1.5,
-          level: 1,
-          strengths: [
-            'Early exploration of AI in products',
-            'Understanding of customer needs',
-            'Some prototypes in development'
-          ],
-          opportunities: [
-            'Develop an AI product roadmap',
-            'Focus on data quality and infrastructure',
-            'Create cross-functional AI innovation teams'
-          ]
-        },
-        businessModel: {
-          score: 1.8,
-          level: 2,
-          strengths: [
-            'Leadership awareness of AI disruption potential',
-            'Initial exploration of AI-enabled services',
-            'Willingness to experiment with new approaches'
-          ],
-          opportunities: [
-            'Conduct AI disruption risk assessment',
-            'Explore data monetization opportunities',
-            'Pilot AI-native business models'
-          ]
-        },
-        overall: {
-          score: 1.8,
-          level: 2
+      try {
+        const parsedAssessment = JSON.parse(storedAssessment);
+        
+        // Check if strengths and opportunities are the default placeholders
+        // If they are, replace with more meaningful defaults
+        if (parsedAssessment.productivity && 
+            parsedAssessment.productivity.strengths.some(s => s.includes('will be identified'))) {
+          parsedAssessment.productivity.strengths = defaultStrengths.productivity;
         }
+        
+        if (parsedAssessment.valueCreation && 
+            parsedAssessment.valueCreation.strengths.some(s => s.includes('will be identified'))) {
+          parsedAssessment.valueCreation.strengths = defaultStrengths.valueCreation;
+        }
+        
+        if (parsedAssessment.businessModel && 
+            parsedAssessment.businessModel.strengths.some(s => s.includes('will be identified'))) {
+          parsedAssessment.businessModel.strengths = defaultStrengths.businessModel;
+        }
+        
+        if (parsedAssessment.productivity && 
+            parsedAssessment.productivity.opportunities.some(s => s.includes('will be identified'))) {
+          parsedAssessment.productivity.opportunities = defaultOpportunities.productivity;
+        }
+        
+        if (parsedAssessment.valueCreation && 
+            parsedAssessment.valueCreation.opportunities.some(s => s.includes('will be identified'))) {
+          parsedAssessment.valueCreation.opportunities = defaultOpportunities.valueCreation;
+        }
+        
+        if (parsedAssessment.businessModel && 
+            parsedAssessment.businessModel.opportunities.some(s => s.includes('will be identified'))) {
+          parsedAssessment.businessModel.opportunities = defaultOpportunities.businessModel;
+        }
+        
+        setAssessment(parsedAssessment);
+      } catch (error) {
+        console.error('Error parsing assessment:', error);
+        setAssessment(generateDemoAssessment());
       }
-      setAssessment(demoAssessment)
+    } else {
+      // If no assessment data found, generate demo assessment
+      setAssessment(generateDemoAssessment());
     }
     setIsLoading(false)
   }, [])
+  
+  const generateDemoAssessment = () => {
+    return {
+      userInfo: {
+        name: "Demo User",
+        role: "VP of Engineering",
+        industry: "Manufacturing",
+        orgSize: "Mid-sized"
+      },
+      productivity: {
+        score: 2.0,
+        level: 2,
+        strengths: defaultStrengths.productivity,
+        opportunities: defaultOpportunities.productivity
+      },
+      valueCreation: {
+        score: 2.5,
+        level: 2,
+        strengths: defaultStrengths.valueCreation,
+        opportunities: defaultOpportunities.valueCreation
+      },
+      businessModel: {
+        score: 1.5,
+        level: 1,
+        strengths: defaultStrengths.businessModel,
+        opportunities: defaultOpportunities.businessModel
+      },
+      overall: {
+        score: 2.0,
+        level: 2
+      }
+    };
+  }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

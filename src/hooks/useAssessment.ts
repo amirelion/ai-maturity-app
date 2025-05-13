@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Question, Response, UserInfo, AssessmentResult } from '@/types/assessment';
-import { allQuestions } from '@/lib/questions';
+import { allQuestions, userInfoQuestions, productivityQuestions, valueCreationQuestions, businessModelQuestions, closingQuestions } from '@/lib/questions';
 import { questionsBank } from '@/config/ai-config';
 
 // How many questions should be answered before allowing to complete assessment
 const MIN_QUESTIONS_THRESHOLD = 4; 
+
+// Defines how many user info questions to ask before moving to AI questions
+const MAX_USER_INFO_QUESTIONS = 3; // We'll only ask for name/role, industry, and org size
 
 export function useAssessment() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -26,7 +29,10 @@ export function useAssessment() {
   const [canForceComplete, setCanForceComplete] = useState(false);
   
   // Calculate progress
-  const progress = Math.min(Math.round((currentQuestionIndex / allQuestions.length) * 100), 100);
+  const progress = Math.min(Math.round((currentQuestionIndex / (userInfoQuestions.slice(0, MAX_USER_INFO_QUESTIONS).length + 
+                                               productivityQuestions.slice(0, 3).length + 
+                                               valueCreationQuestions.slice(0, 3).length + 
+                                               businessModelQuestions.slice(0, 3).length)) * 100), 100);
   
   // Load any existing data from localStorage
   useEffect(() => {
@@ -88,34 +94,46 @@ export function useAssessment() {
     }
   }, [responses]);
   
-  // Determine conversation context based on current question
-  useEffect(() => {
-    const currentQuestion = allQuestions[currentQuestionIndex];
-    if (!currentQuestion) return;
-    
-    switch (currentQuestion.valueArea) {
-      case 'general':
-        if (currentQuestion.id.startsWith('user-')) {
-          setCurrentContext('userInfo');
-        } else if (currentQuestion.id.startsWith('closing-')) {
-          setCurrentContext('closing');
-        }
-        break;
-      case 'productivity':
-        setCurrentContext('productivity');
-        break;
-      case 'valueCreation':
-        setCurrentContext('valueCreation');
-        break;
-      case 'businessModel':
-        setCurrentContext('businessModel');
-        break;
+  // Get current question based on the conversation flow
+  const getCurrentQuestion = useCallback(() => {
+    // User info questions (limited to MAX_USER_INFO_QUESTIONS)
+    if (responses.length < MAX_USER_INFO_QUESTIONS) {
+      setCurrentContext('userInfo');
+      return userInfoQuestions[responses.length];
     }
-  }, [currentQuestionIndex]);
+    
+    // Productivity questions (ask 3)
+    if (responses.length < MAX_USER_INFO_QUESTIONS + 3) {
+      setCurrentContext('productivity');
+      return productivityQuestions[responses.length - MAX_USER_INFO_QUESTIONS];
+    }
+    
+    // Value Creation questions (ask 3)
+    if (responses.length < MAX_USER_INFO_QUESTIONS + 6) {
+      setCurrentContext('valueCreation');
+      return valueCreationQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 3)];
+    }
+    
+    // Business Model questions (ask 3)
+    if (responses.length < MAX_USER_INFO_QUESTIONS + 9) {
+      setCurrentContext('businessModel');
+      return businessModelQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 6)];
+    }
+    
+    // If we've gone through all categories, return a closing question
+    setCurrentContext('closing');
+    return closingQuestions[0];
+  }, [responses.length]);
   
   // Add user response and get AI response
   const addResponse = useCallback(async (answer: string) => {
-    const currentQuestion = allQuestions[currentQuestionIndex];
+    // Get the current question based on our flow logic
+    const currentQuestion = getCurrentQuestion();
+    
+    if (!currentQuestion) {
+      console.error('No current question available');
+      return;
+    }
     
     // Save this response
     const newResponse: Response = {
@@ -188,12 +206,18 @@ export function useAssessment() {
         { role: 'assistant', content: assistantResponse }
       ]);
       
-      // Move to next question if available
-      if (currentQuestionIndex < allQuestions.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-      } else {
-        // Assessment complete
+      // Check if we should move to completing the assessment
+      if (responses.length >= MAX_USER_INFO_QUESTIONS + 9) {
+        // We've gone through all the question categories
         await completeAssessment();
+      } else {
+        // Get the next question and add it to conversation
+        const nextQuestion = getCurrentQuestion();
+        
+        if (nextQuestion) {
+          // Update currentQuestionIndex just for progress tracking
+          setCurrentQuestionIndex(prev => prev + 1);
+        }
       }
     } catch (err) {
       console.error('Error processing response:', err);
@@ -202,9 +226,9 @@ export function useAssessment() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentQuestionIndex, userInfo, responses, conversation, currentContext]);
+  }, [responses, conversation, currentContext, getCurrentQuestion]);
   
-  // Force complete the assessment (for demo purposes)
+  // Force complete the assessment
   const forceCompleteAssessment = useCallback(async () => {
     if (responses.length < MIN_QUESTIONS_THRESHOLD) {
       setError(`Please answer at least ${MIN_QUESTIONS_THRESHOLD} questions before completing the assessment.`);
@@ -285,13 +309,13 @@ export function useAssessment() {
           opportunities: ['Develop AI product roadmap', 'Enhance data capabilities']
         },
         businessModel: {
-          score: 3.2,
-          level: 3,
-          strengths: ['Leadership vision for transformation', 'Willingness to disrupt status quo'],
-          opportunities: ['Pilot new business models', 'Develop ecosystem partnerships']
+          score: 1.5,
+          level: 1,
+          strengths: ['Leadership awareness of AI potential', 'Initial interest in exploring AI opportunities'],
+          opportunities: ['Develop AI strategy aligned with business goals', 'Identify potential areas for business model innovation']
         },
         overall: {
-          score: 2.5,
+          score: 1.8,
           level: 2
         },
         responses,
@@ -346,7 +370,7 @@ export function useAssessment() {
     setAssessment(null);
     setConversation([{ 
       role: 'assistant', 
-      content: allQuestions[0].text 
+      content: userInfoQuestions[0].text 
     }]);
     setIsAssessmentComplete(false);
     setError(null);
@@ -362,7 +386,7 @@ export function useAssessment() {
   };
   
   return {
-    currentQuestion: allQuestions[currentQuestionIndex],
+    currentQuestion: getCurrentQuestion(),
     responses,
     addResponse,
     userInfo,
