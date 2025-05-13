@@ -17,7 +17,7 @@ const MAX_USER_INFO_QUESTIONS = 3; // We'll only ask for name/role, industry, an
 // Helper to check if Firestore is initialized
 const isFirestoreAvailable = () => {
   // Check if we're in a browser and db is properly initialized
-  return typeof window !== 'undefined' && db && typeof db.collection === 'function';
+  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
 };
 
 export function useAssessment() {
@@ -49,7 +49,7 @@ export function useAssessment() {
     // Check after a slight delay to allow Firebase to initialize
     const checkFirestore = setTimeout(() => {
       try {
-        const available = typeof window !== 'undefined' && db && typeof db.collection === 'function';
+        const available = isFirestoreAvailable();
         setFirestoreAvailable(available);
         if (!available) {
           console.warn('Firestore is not available, using localStorage fallback');
