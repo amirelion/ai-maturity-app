@@ -14,11 +14,11 @@ const defaultStrengths = {
   ],
   valueCreation: [
     'Understanding of customer needs that AI could address',
-    'Awareness of AI's potential to enhance products and services',
+    'Awareness of AI potential to enhance products and services',
     'Early consideration of competitive positioning with AI'
   ],
   businessModel: [
-    'Leadership interest in AI's strategic potential',
+    'Leadership interest in AI strategic potential',
     'Openness to innovation and new approaches',
     'Recognition of changing industry landscape'
   ]
