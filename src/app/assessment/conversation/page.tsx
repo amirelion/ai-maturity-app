@@ -23,6 +23,8 @@ export default function ConversationPage() {
     isAssessmentComplete,
     assessment,
     error,
+    canForceComplete,
+    forceCompleteAssessment,
     playAssistantResponse
   } = useAssessment()
 
@@ -73,7 +75,8 @@ export default function ConversationPage() {
     setIsVoiceMode(prev => !prev)
   }
 
-  const completeAssessment = () => {
+  const handleCompleteAssessment = async () => {
+    await forceCompleteAssessment()
     router.push('/assessment/results')
   }
 
@@ -192,14 +195,25 @@ export default function ConversationPage() {
             )}
           </div>
           
-          {/* Demo shortcut for presentation purposes */}
-          <div className="mt-4 text-center">
-            <button
-              onClick={completeAssessment}
-              className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 underline"
-            >
-              Skip to results (demo only)
-            </button>
+          {/* Complete Assessment Button */}
+          <div className="mt-6 text-center">
+            {canForceComplete ? (
+              <button
+                onClick={handleCompleteAssessment}
+                disabled={isLoading}
+                className="py-3 px-6 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
+              >
+                {isLoading ? 'Analyzing...' : 'Complete Assessment & View Results'}
+              </button>
+            ) : (
+              <button
+                onClick={handleCompleteAssessment}
+                className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 underline"
+                disabled={isLoading}
+              >
+                Skip to results (answer more questions to complete)
+              </button>
+            )}
           </div>
         </div>
       </div>

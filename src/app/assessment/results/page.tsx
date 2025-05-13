@@ -1,49 +1,137 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { maturityFramework } from '@/config/ai-config'
 
 export default function ResultsPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [assessment, setAssessment] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   
-  // Mock assessment results - in a real app these would come from the assessment process
-  const results = {
-    productivity: 2.5, // On a scale of 1-4
-    valueCreation: 1.8,
-    businessModel: 3.2,
-    overall: 2.5,
-    strengths: [
-      'Strong executive awareness of AI potential',
-      'Several successful productivity tool pilots',
-      'Clear vision for AI-driven business model'
-    ],
-    opportunities: [
-      'Formalize AI governance structure',
-      'Expand AI integration in customer-facing products',
-      'Develop comprehensive AI training program'
-    ]
-  }
+  // Load assessment data from localStorage
+  useEffect(() => {
+    const storedAssessment = localStorage.getItem('assessment')
+    if (storedAssessment) {
+      setAssessment(JSON.parse(storedAssessment))
+    } else {
+      // If no assessment data found, generate some for demo purposes
+      const demoAssessment = {
+        userInfo: {
+          name: "Demo User",
+          role: "VP of Engineering",
+          industry: "Manufacturing",
+          orgSize: "Mid-sized"
+        },
+        productivity: {
+          score: 2.1,
+          level: 2,
+          strengths: [
+            'Some teams experimenting with AI tools',
+            'Leadership interest in AI adoption',
+            'Initial success with productivity pilots'
+          ],
+          opportunities: [
+            'Formalize AI governance structure',
+            'Develop comprehensive AI training program',
+            'Establish metrics to track AI impact'
+          ]
+        },
+        valueCreation: {
+          score: 1.5,
+          level: 1,
+          strengths: [
+            'Early exploration of AI in products',
+            'Understanding of customer needs',
+            'Some prototypes in development'
+          ],
+          opportunities: [
+            'Develop an AI product roadmap',
+            'Focus on data quality and infrastructure',
+            'Create cross-functional AI innovation teams'
+          ]
+        },
+        businessModel: {
+          score: 1.8,
+          level: 2,
+          strengths: [
+            'Leadership awareness of AI disruption potential',
+            'Initial exploration of AI-enabled services',
+            'Willingness to experiment with new approaches'
+          ],
+          opportunities: [
+            'Conduct AI disruption risk assessment',
+            'Explore data monetization opportunities',
+            'Pilot AI-native business models'
+          ]
+        },
+        overall: {
+          score: 1.8,
+          level: 2
+        }
+      }
+      setAssessment(demoAssessment)
+    }
+    setIsLoading(false)
+  }, [])
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     
-    // Simulate API call to send email
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      // Call the API to send the email with assessment results
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          assessment
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to send email')
+      }
+      
       setIsSubmitted(true)
-    }, 1500)
+    } catch (error) {
+      console.error('Error sending email:', error)
+      alert('Failed to send the report. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   // Helper function to render maturity level bars
   const renderMaturityBar = (score: number) => {
     const levels = [
-      { max: 1.5, label: 'Exploring', color: 'bg-yellow-500' },
-      { max: 2.5, label: 'Experimenting', color: 'bg-blue-500' },
-      { max: 3.5, label: 'Implementing', color: 'bg-green-500' },
-      { max: 4, label: 'Transforming', color: 'bg-purple-500' }
+      { 
+        max: maturityFramework.levels.exploring.range.max, 
+        label: maturityFramework.levels.exploring.name, 
+        color: 'bg-yellow-500' 
+      },
+      { 
+        max: maturityFramework.levels.experimenting.range.max, 
+        label: maturityFramework.levels.experimenting.name, 
+        color: 'bg-blue-500' 
+      },
+      { 
+        max: maturityFramework.levels.implementing.range.max, 
+        label: maturityFramework.levels.implementing.name, 
+        color: 'bg-green-500' 
+      },
+      { 
+        max: 4, 
+        label: maturityFramework.levels.transforming.name, 
+        color: 'bg-purple-500' 
+      }
     ]
     
     const currentLevel = levels.find(level => score <= level.max)
@@ -65,6 +153,17 @@ export default function ResultsPage() {
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Analyzing your assessment results...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -81,27 +180,27 @@ export default function ResultsPage() {
         {/* Results Card */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Overall Maturity Score: {results.overall.toFixed(1)}/4.0
+            Overall Maturity Score: {assessment?.overall.score.toFixed(1)}/4.0
           </h2>
           
           <div className="mb-8">
-            {renderMaturityBar(results.overall)}
+            {renderMaturityBar(assessment?.overall.score)}
           </div>
           
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             <div className="space-y-2">
               <h3 className="font-medium text-gray-900 dark:text-white">Productivity Enhancement</h3>
-              {renderMaturityBar(results.productivity)}
+              {renderMaturityBar(assessment?.productivity.score)}
             </div>
             
             <div className="space-y-2">
               <h3 className="font-medium text-gray-900 dark:text-white">Value Creation</h3>
-              {renderMaturityBar(results.valueCreation)}
+              {renderMaturityBar(assessment?.valueCreation.score)}
             </div>
             
             <div className="space-y-2">
               <h3 className="font-medium text-gray-900 dark:text-white">Business Model Innovation</h3>
-              {renderMaturityBar(results.businessModel)}
+              {renderMaturityBar(assessment?.businessModel.score)}
             </div>
           </div>
           
@@ -111,8 +210,20 @@ export default function ResultsPage() {
                 Key Strengths
               </h3>
               <ul className="space-y-2">
-                {results.strengths.map((strength, index) => (
-                  <li key={index} className="flex items-start">
+                {assessment?.productivity.strengths.slice(0, 2).map((strength: string, index: number) => (
+                  <li key={`prod-${index}`} className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span className="text-gray-700 dark:text-gray-300">{strength}</span>
+                  </li>
+                ))}
+                {assessment?.valueCreation.strengths.slice(0, 1).map((strength: string, index: number) => (
+                  <li key={`val-${index}`} className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span className="text-gray-700 dark:text-gray-300">{strength}</span>
+                  </li>
+                ))}
+                {assessment?.businessModel.strengths.slice(0, 1).map((strength: string, index: number) => (
+                  <li key={`biz-${index}`} className="flex items-start">
                     <span className="text-green-500 mr-2">✓</span>
                     <span className="text-gray-700 dark:text-gray-300">{strength}</span>
                   </li>
@@ -125,8 +236,20 @@ export default function ResultsPage() {
                 Growth Opportunities
               </h3>
               <ul className="space-y-2">
-                {results.opportunities.map((opportunity, index) => (
-                  <li key={index} className="flex items-start">
+                {assessment?.productivity.opportunities.slice(0, 1).map((opportunity: string, index: number) => (
+                  <li key={`prod-opp-${index}`} className="flex items-start">
+                    <span className="text-primary-500 mr-2">→</span>
+                    <span className="text-gray-700 dark:text-gray-300">{opportunity}</span>
+                  </li>
+                ))}
+                {assessment?.valueCreation.opportunities.slice(0, 2).map((opportunity: string, index: number) => (
+                  <li key={`val-opp-${index}`} className="flex items-start">
+                    <span className="text-primary-500 mr-2">→</span>
+                    <span className="text-gray-700 dark:text-gray-300">{opportunity}</span>
+                  </li>
+                ))}
+                {assessment?.businessModel.opportunities.slice(0, 1).map((opportunity: string, index: number) => (
+                  <li key={`biz-opp-${index}`} className="flex items-start">
                     <span className="text-primary-500 mr-2">→</span>
                     <span className="text-gray-700 dark:text-gray-300">{opportunity}</span>
                   </li>
