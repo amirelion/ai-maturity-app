@@ -8,6 +8,11 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/contexts/AuthContext'
 
+// Helper to check if Firestore is available
+const isFirestoreAvailable = () => {
+  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
+};
+
 // Default strengths and opportunities if none are extracted from the analysis
 const defaultStrengths = {
   productivity: [
@@ -68,6 +73,26 @@ function ResultsContent() {
   const [assessment, setAssessment] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [firestoreAvailable, setFirestoreAvailable] = useState(false)
+  
+  // Check if Firestore is available
+  useEffect(() => {
+    // Check after a slight delay to allow Firebase to initialize
+    const checkFirestore = setTimeout(() => {
+      try {
+        const available = isFirestoreAvailable();
+        setFirestoreAvailable(available);
+        if (!available) {
+          console.warn('Firestore is not available in results page, using localStorage fallback');
+        }
+      } catch (err) {
+        console.error('Error checking Firestore availability:', err);
+        setFirestoreAvailable(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(checkFirestore);
+  }, []);
   
   // Load assessment data
   useEffect(() => {
@@ -75,8 +100,8 @@ function ResultsContent() {
       setIsLoading(true)
       setError(null)
       
-      // If we have an assessmentId and user is authenticated, try to load from Firestore
-      if (assessmentId && currentUser) {
+      // If we have an assessmentId, user is authenticated, and Firestore is available, try to load from Firestore
+      if (assessmentId && currentUser && firestoreAvailable && db) {
         try {
           const assessmentRef = doc(db, 'assessments', assessmentId)
           const assessmentSnap = await getDoc(assessmentRef)
@@ -109,7 +134,7 @@ function ResultsContent() {
           loadFromLocalStorage()
         }
       } else {
-        // Load from localStorage if no assessmentId or user not authenticated
+        // Load from localStorage if no assessmentId, user not authenticated, or Firestore not available
         loadFromLocalStorage()
       }
       
@@ -172,8 +197,11 @@ function ResultsContent() {
       }
     }
     
-    loadAssessment()
-  }, [assessmentId, currentUser, router])
+    // Only run load assessment when Firestore availability has been checked
+    if (firestoreAvailable !== undefined) {
+      loadAssessment()
+    }
+  }, [assessmentId, currentUser, router, firestoreAvailable])
   
   const generateDemoAssessment = () => {
     return {

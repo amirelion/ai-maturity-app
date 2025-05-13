@@ -8,6 +8,11 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Link from 'next/link';
 import { MaturityLevel } from '@/types/assessment';
 
+// Helper to check if Firestore is available
+const isFirestoreAvailable = () => {
+  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
+};
+
 interface AssessmentCard {
   id: string;
   createdAt: Date;
@@ -31,15 +36,42 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
+  const [firestoreAvailable, setFirestoreAvailable] = useState(false);
+
+  // Check if Firestore is available
+  useEffect(() => {
+    // Check after a slight delay to allow Firebase to initialize
+    const checkFirestore = setTimeout(() => {
+      try {
+        const available = isFirestoreAvailable();
+        setFirestoreAvailable(available);
+        if (!available) {
+          console.warn('Firestore is not available in dashboard, using localStorage fallback');
+        }
+      } catch (err) {
+        console.error('Error checking Firestore availability:', err);
+        setFirestoreAvailable(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(checkFirestore);
+  }, []);
 
   useEffect(() => {
     const fetchAssessments = async () => {
-      if (!currentUser) return;
+      if (!currentUser || !firestoreAvailable) {
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
       setError(null);
       
       try {
+        if (!db) {
+          throw new Error('Firestore database is not initialized');
+        }
+        
         const assessmentsRef = collection(db, 'assessments');
         const q = query(
           assessmentsRef,
@@ -72,11 +104,17 @@ export default function DashboardPage() {
       }
     };
     
-    fetchAssessments();
-  }, [currentUser]);
+    // Only fetch assessments once Firestore availability has been checked
+    if (firestoreAvailable !== undefined) {
+      fetchAssessments();
+    }
+  }, [currentUser, firestoreAvailable]);
 
   const handleDeleteAssessment = async (assessmentId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !firestoreAvailable || !db) {
+      setError('Cannot delete assessment - Firestore is not available');
+      return;
+    }
     
     try {
       await deleteDoc(doc(db, 'assessments', assessmentId));
