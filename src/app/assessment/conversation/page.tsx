@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAssessment } from '@/hooks/useAssessment'
 import VoiceRecorder from '@/components/assessment/VoiceRecorder'
 
 export default function ConversationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const assessmentId = searchParams.get('id')
+  
   const [input, setInput] = useState('')
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isListening, setIsListening] = useState(false)
@@ -45,9 +48,13 @@ export default function ConversationPage() {
   // Redirect to results when assessment is complete
   useEffect(() => {
     if (isAssessmentComplete && assessment) {
-      router.push('/assessment/results')
+      if (assessmentId) {
+        router.push(`/assessment/results?id=${assessmentId}`)
+      } else {
+        router.push('/assessment/results')
+      }
     }
-  }, [isAssessmentComplete, assessment, router])
+  }, [isAssessmentComplete, assessment, router, assessmentId])
 
   // Play the last assistant message if in voice mode
   useEffect(() => {
@@ -78,15 +85,29 @@ export default function ConversationPage() {
 
   const handleCompleteAssessment = async () => {
     await forceCompleteAssessment()
-    router.push('/assessment/results')
+    if (assessmentId) {
+      router.push(`/assessment/results?id=${assessmentId}`)
+    } else {
+      router.push('/assessment/results')
+    }
   }
 
   return (
-    <div className="flex flex-col h-screen max-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-screen max-h-screen bg-gray-50 dark:bg-gray-900 pt-16">
       {/* Header */}
       <header className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">AI Maturity Assessment</h1>
+          <div className="flex items-center">
+            <Link 
+              href={assessmentId ? "/dashboard" : "/"}
+              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mr-4"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </Link>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">AI Maturity Assessment</h1>
+          </div>
           <div className="flex items-center space-x-4">
             <div className="w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
               <div 

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { maturityFramework } from '@/config/ai-config'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Default strengths and opportunities if none are extracted from the analysis
 const defaultStrengths = {
@@ -44,62 +47,122 @@ const defaultOpportunities = {
 
 export default function ResultsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const assessmentId = searchParams.get('id')
+  const { currentUser } = useAuth()
+  
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [assessment, setAssessment] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
-  // Load assessment data from localStorage
+  // Load assessment data
   useEffect(() => {
-    const storedAssessment = localStorage.getItem('assessment')
-    if (storedAssessment) {
-      try {
-        const parsedAssessment = JSON.parse(storedAssessment);
-        
-        // Check if strengths and opportunities are the default placeholders
-        // If they are, replace with more meaningful defaults
-        if (parsedAssessment.productivity && 
-            parsedAssessment.productivity.strengths.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.productivity.strengths = defaultStrengths.productivity;
+    const loadAssessment = async () => {
+      setIsLoading(true)
+      setError(null)
+      
+      // If we have an assessmentId and user is authenticated, try to load from Firestore
+      if (assessmentId && currentUser) {
+        try {
+          const assessmentRef = doc(db, 'assessments', assessmentId)
+          const assessmentSnap = await getDoc(assessmentRef)
+          
+          if (assessmentSnap.exists()) {
+            const assessmentData = assessmentSnap.data()
+            
+            // Verify this assessment belongs to the current user
+            if (assessmentData.userId === currentUser.uid) {
+              setAssessment(assessmentData.results)
+              
+              // Pre-fill email if available
+              if (assessmentData.userInfo?.email) {
+                setEmail(assessmentData.userInfo.email)
+              } else if (currentUser.email) {
+                setEmail(currentUser.email)
+              }
+            } else {
+              setError('You do not have permission to view this assessment.')
+              router.push('/dashboard')
+            }
+          } else {
+            setError('Assessment not found.')
+          }
+        } catch (err) {
+          console.error('Error loading assessment from Firestore:', err)
+          setError('Failed to load assessment. Please try again.')
+          
+          // Fall back to localStorage
+          loadFromLocalStorage()
         }
-        
-        if (parsedAssessment.valueCreation && 
-            parsedAssessment.valueCreation.strengths.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.valueCreation.strengths = defaultStrengths.valueCreation;
-        }
-        
-        if (parsedAssessment.businessModel && 
-            parsedAssessment.businessModel.strengths.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.businessModel.strengths = defaultStrengths.businessModel;
-        }
-        
-        if (parsedAssessment.productivity && 
-            parsedAssessment.productivity.opportunities.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.productivity.opportunities = defaultOpportunities.productivity;
-        }
-        
-        if (parsedAssessment.valueCreation && 
-            parsedAssessment.valueCreation.opportunities.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.valueCreation.opportunities = defaultOpportunities.valueCreation;
-        }
-        
-        if (parsedAssessment.businessModel && 
-            parsedAssessment.businessModel.opportunities.some((s: string) => s.includes('will be identified'))) {
-          parsedAssessment.businessModel.opportunities = defaultOpportunities.businessModel;
-        }
-        
-        setAssessment(parsedAssessment);
-      } catch (error) {
-        console.error('Error parsing assessment:', error);
-        setAssessment(generateDemoAssessment());
+      } else {
+        // Load from localStorage if no assessmentId or user not authenticated
+        loadFromLocalStorage()
       }
-    } else {
-      // If no assessment data found, generate demo assessment
-      setAssessment(generateDemoAssessment());
+      
+      setIsLoading(false)
     }
-    setIsLoading(false)
-  }, [])
+    
+    const loadFromLocalStorage = () => {
+      const storedAssessment = localStorage.getItem('assessment')
+      if (storedAssessment) {
+        try {
+          const parsedAssessment = JSON.parse(storedAssessment)
+          
+          // Check if strengths and opportunities are the default placeholders
+          // If they are, replace with more meaningful defaults
+          if (parsedAssessment.productivity && 
+              parsedAssessment.productivity.strengths.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.productivity.strengths = defaultStrengths.productivity
+          }
+          
+          if (parsedAssessment.valueCreation && 
+              parsedAssessment.valueCreation.strengths.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.valueCreation.strengths = defaultStrengths.valueCreation
+          }
+          
+          if (parsedAssessment.businessModel && 
+              parsedAssessment.businessModel.strengths.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.businessModel.strengths = defaultStrengths.businessModel
+          }
+          
+          if (parsedAssessment.productivity && 
+              parsedAssessment.productivity.opportunities.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.productivity.opportunities = defaultOpportunities.productivity
+          }
+          
+          if (parsedAssessment.valueCreation && 
+              parsedAssessment.valueCreation.opportunities.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.valueCreation.opportunities = defaultOpportunities.valueCreation
+          }
+          
+          if (parsedAssessment.businessModel && 
+              parsedAssessment.businessModel.opportunities.some((s: string) => s.includes('will be identified'))) {
+            parsedAssessment.businessModel.opportunities = defaultOpportunities.businessModel
+          }
+          
+          setAssessment(parsedAssessment)
+          
+          // Pre-fill email if available
+          if (parsedAssessment.userInfo?.email) {
+            setEmail(parsedAssessment.userInfo.email)
+          } else if (currentUser?.email) {
+            setEmail(currentUser.email)
+          }
+        } catch (error) {
+          console.error('Error parsing assessment:', error)
+          setAssessment(generateDemoAssessment())
+        }
+      } else {
+        // If no assessment data found, generate demo assessment
+        setAssessment(generateDemoAssessment())
+      }
+    }
+    
+    loadAssessment()
+  }, [assessmentId, currentUser, router])
   
   const generateDemoAssessment = () => {
     return {
@@ -213,15 +276,54 @@ export default function ResultsPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Analyzing your assessment results...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading assessment results...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-8 max-w-md">
+          <div className="text-center text-red-600 dark:text-red-400 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">Error</h2>
+          <p className="text-gray-600 dark:text-gray-400 text-center mb-6">{error}</p>
+          <div className="flex justify-center">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
+            >
+              Go to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 pt-20">
       <div className="max-w-4xl mx-auto">
+        {/* Dashboard Link */}
+        {currentUser && (
+          <div className="mb-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Dashboard
+            </Link>
+          </div>
+        )}
+        
         {/* Results Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -363,15 +465,27 @@ export default function ResultsPage() {
               <p className="text-gray-600 dark:text-gray-400 mb-6">
                 We've sent your detailed AI maturity report to {email}. Check your inbox shortly.
               </p>
-              <Link 
-                href="/"
-                className="inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400"
-              >
-                <span>Return to Home</span>
-                <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"></path>
-                </svg>
-              </Link>
+              {currentUser ? (
+                <Link 
+                  href="/dashboard"
+                  className="inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                >
+                  <span>Return to Dashboard</span>
+                  <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"></path>
+                  </svg>
+                </Link>
+              ) : (
+                <Link 
+                  href="/"
+                  className="inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                >
+                  <span>Return to Home</span>
+                  <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"></path>
+                  </svg>
+                </Link>
+              )}
             </div>
           )}
         </div>
