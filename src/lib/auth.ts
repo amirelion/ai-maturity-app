@@ -13,6 +13,10 @@ import { getGoogleProvider } from './firebase';
 // Register a new user
 export async function registerUser(email: string, password: string, displayName?: string) {
   try {
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     // Update profile if displayName is provided
     if (displayName && userCredential.user) {
@@ -28,6 +32,10 @@ export async function registerUser(email: string, password: string, displayName?
 // Sign in existing user
 export async function signIn(email: string, password: string) {
   try {
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error: any) {
@@ -44,6 +52,11 @@ export async function signInWithGoogle() {
     }
     
     const googleProvider = getGoogleProvider();
+    
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
@@ -55,6 +68,10 @@ export async function signInWithGoogle() {
 // Sign out user
 export async function signOut() {
   try {
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    
     await firebaseSignOut(auth);
     return true;
   } catch (error: any) {
@@ -66,6 +83,10 @@ export async function signOut() {
 // Password reset
 export async function resetPassword(email: string) {
   try {
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    
     await sendPasswordResetEmail(auth, email);
     return true;
   } catch (error: any) {
