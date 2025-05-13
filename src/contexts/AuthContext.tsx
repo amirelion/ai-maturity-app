@@ -21,27 +21,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Check if auth is available
+    if (!auth) {
+      console.error('Firebase auth is not initialized');
+      setIsLoading(false);
+      return () => {};
+    }
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       
-      // If we have a user, ensure they have a profile in Firestore
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-          // Create new user profile if it doesn't exist
-          await setDoc(userRef, {
-            email: user.email,
-            name: user.displayName || '',
-            createdAt: serverTimestamp(),
-            lastLoginAt: serverTimestamp()
-          });
-        } else {
-          // Update last login time
-          await setDoc(userRef, {
-            lastLoginAt: serverTimestamp()
-          }, { merge: true });
+      // If we have a user and Firestore is initialized, ensure they have a profile
+      if (user && db) {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            // Create new user profile if it doesn't exist
+            await setDoc(userRef, {
+              email: user.email,
+              name: user.displayName || '',
+              createdAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp()
+            });
+          } else {
+            // Update last login time
+            await setDoc(userRef, {
+              lastLoginAt: serverTimestamp()
+            }, { merge: true });
+          }
+        } catch (error) {
+          console.error('Error managing user profile in Firestore:', error);
         }
       }
       
