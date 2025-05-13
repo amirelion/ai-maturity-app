@@ -14,6 +14,12 @@ const MIN_QUESTIONS_THRESHOLD = 4;
 // Defines how many user info questions to ask before moving to AI questions
 const MAX_USER_INFO_QUESTIONS = 3; // We'll only ask for name/role, industry, and org size
 
+// Helper to check if Firestore is initialized
+const isFirestoreAvailable = () => {
+  // Check if we're in a browser and db is properly initialized
+  return typeof window !== 'undefined' && db && typeof db.collection === 'function';
+};
+
 export function useAssessment() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Response[]>([]);
@@ -31,11 +37,31 @@ export function useAssessment() {
   const [error, setError] = useState<string | null>(null);
   const [canForceComplete, setCanForceComplete] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(userInfoQuestions[0]);
+  const [firestoreAvailable, setFirestoreAvailable] = useState(false);
   
   // New state variables for Firebase integration
   const { currentUser } = useAuth();
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
   const [isNewAssessment, setIsNewAssessment] = useState(true);
+  
+  // Check if Firestore is available
+  useEffect(() => {
+    // Check after a slight delay to allow Firebase to initialize
+    const checkFirestore = setTimeout(() => {
+      try {
+        const available = typeof window !== 'undefined' && db && typeof db.collection === 'function';
+        setFirestoreAvailable(available);
+        if (!available) {
+          console.warn('Firestore is not available, using localStorage fallback');
+        }
+      } catch (err) {
+        console.error('Error checking Firestore availability:', err);
+        setFirestoreAvailable(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(checkFirestore);
+  }, []);
   
   // Calculate progress
   const progress = Math.min(Math.round((currentQuestionIndex / (userInfoQuestions.slice(0, MAX_USER_INFO_QUESTIONS).length + 
@@ -46,8 +72,8 @@ export function useAssessment() {
   // Check if the user has an in-progress assessment or initialize a new one
   useEffect(() => {
     const initializeAssessment = async () => {
-      // If the user is authenticated, check for existing assessments
-      if (currentUser) {
+      // If the user is authenticated and Firestore is available, check for existing assessments
+      if (currentUser && firestoreAvailable) {
         setIsLoading(true);
         try {
           // Check for in-progress assessment
@@ -78,21 +104,27 @@ export function useAssessment() {
             console.log('Loaded existing assessment:', assessmentDoc.id);
           } else {
             // Create a new assessment
-            const newAssessmentRef = await addDoc(collection(db, 'assessments'), {
-              userId: currentUser.uid,
-              status: 'in-progress',
-              responses: [],
-              userInfo: {},
-              conversation: [{ role: 'assistant', content: allQuestions[0].text }],
-              currentQuestionIndex: 0,
-              currentContext: 'userInfo',
-              createdAt: serverTimestamp()
-            });
-            
-            setAssessmentId(newAssessmentRef.id);
-            setIsNewAssessment(true);
-            
-            console.log('Created new assessment:', newAssessmentRef.id);
+            try {
+              const newAssessmentRef = await addDoc(collection(db, 'assessments'), {
+                userId: currentUser.uid,
+                status: 'in-progress',
+                responses: [],
+                userInfo: {},
+                conversation: [{ role: 'assistant', content: allQuestions[0].text }],
+                currentQuestionIndex: 0,
+                currentContext: 'userInfo',
+                createdAt: serverTimestamp()
+              });
+              
+              setAssessmentId(newAssessmentRef.id);
+              setIsNewAssessment(true);
+              
+              console.log('Created new assessment:', newAssessmentRef.id);
+            } catch (err) {
+              console.error('Error creating new assessment:', err);
+              // Fall back to localStorage
+              loadFromLocalStorage();
+            }
           }
         } catch (error) {
           console.error('Error initializing assessment:', error);
@@ -104,7 +136,7 @@ export function useAssessment() {
           setIsLoading(false);
         }
       } else {
-        // User not logged in, use localStorage
+        // User not logged in or Firestore not available, use localStorage
         loadFromLocalStorage();
       }
     };
@@ -112,32 +144,51 @@ export function useAssessment() {
     const loadFromLocalStorage = () => {
       const storedResponses = localStorage.getItem('assessment_responses');
       if (storedResponses) {
-        setResponses(JSON.parse(storedResponses));
+        try {
+          setResponses(JSON.parse(storedResponses));
+        } catch (e) {
+          console.error('Error parsing stored responses:', e);
+        }
       }
       
       const storedUserInfo = localStorage.getItem('assessment_user_info');
       if (storedUserInfo) {
-        setUserInfo(JSON.parse(storedUserInfo));
+        try {
+          setUserInfo(JSON.parse(storedUserInfo));
+        } catch (e) {
+          console.error('Error parsing stored user info:', e);
+        }
       }
       
       const storedConversation = localStorage.getItem('assessment_conversation');
       if (storedConversation) {
-        setConversation(JSON.parse(storedConversation));
+        try {
+          setConversation(JSON.parse(storedConversation));
+        } catch (e) {
+          console.error('Error parsing stored conversation:', e);
+        }
       }
       
       const storedQuestionIndex = localStorage.getItem('assessment_question_index');
       if (storedQuestionIndex) {
-        setCurrentQuestionIndex(parseInt(storedQuestionIndex, 10));
+        try {
+          setCurrentQuestionIndex(parseInt(storedQuestionIndex, 10));
+        } catch (e) {
+          console.error('Error parsing stored question index:', e);
+        }
       }
     };
     
-    initializeAssessment();
-  }, [currentUser]);
+    // Only run initialization once we've checked Firestore availability
+    if (firestoreAvailable !== undefined) {
+      initializeAssessment();
+    }
+  }, [currentUser, firestoreAvailable]);
   
   // Save to Firestore when data changes
   useEffect(() => {
     const saveToFirestore = async () => {
-      if (currentUser && assessmentId && !isLoading) {
+      if (currentUser && assessmentId && !isLoading && firestoreAvailable) {
         try {
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
@@ -155,8 +206,8 @@ export function useAssessment() {
           // Fall back to localStorage if Firestore fails
           saveToLocalStorage();
         }
-      } else if (!currentUser) {
-        // User not logged in, use localStorage
+      } else if (!currentUser || !firestoreAvailable) {
+        // User not logged in or Firestore not available, use localStorage
         saveToLocalStorage();
       }
     };
@@ -178,16 +229,16 @@ export function useAssessment() {
     };
     
     // Don't save data if we're still initializing
-    if (assessmentId || !currentUser) {
+    if ((assessmentId && firestoreAvailable) || !currentUser || !firestoreAvailable) {
       if (responses.length > 0 || Object.keys(userInfo).length > 0 || conversation.length > 1) {
-        if (currentUser && assessmentId) {
+        if (currentUser && assessmentId && firestoreAvailable) {
           saveToFirestore();
         } else {
           saveToLocalStorage();
         }
       }
     }
-  }, [responses, userInfo, conversation, currentQuestionIndex, currentContext, currentUser, assessmentId, isLoading]);
+  }, [responses, userInfo, conversation, currentQuestionIndex, currentContext, currentUser, assessmentId, isLoading, firestoreAvailable]);
   
   // Check if enough questions have been answered to allow force completion
   useEffect(() => {
@@ -380,7 +431,7 @@ export function useAssessment() {
       setAssessment(data.assessment);
       
       // If user is authenticated, save completed assessment to Firestore
-      if (currentUser && assessmentId) {
+      if (currentUser && assessmentId && firestoreAvailable) {
         try {
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
@@ -394,12 +445,12 @@ export function useAssessment() {
           console.error('Error saving completed assessment to Firestore:', error);
         }
       } else {
-        // User not authenticated, save to localStorage
+        // User not authenticated or Firestore not available, save to localStorage
         localStorage.setItem('assessment', JSON.stringify(data.assessment));
       }
       
       // Clean up conversation history to save space if not using Firestore
-      if (!currentUser) {
+      if (!currentUser || !firestoreAvailable) {
         localStorage.removeItem('assessment_conversation');
         localStorage.removeItem('assessment_responses');
         localStorage.removeItem('assessment_question_index');
@@ -441,7 +492,7 @@ export function useAssessment() {
       setAssessment(demoAssessment);
       
       // Save the demo assessment
-      if (currentUser && assessmentId) {
+      if (currentUser && assessmentId && firestoreAvailable) {
         try {
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
@@ -510,8 +561,8 @@ export function useAssessment() {
     setCurrentContext('userInfo');
     setCanForceComplete(false);
     
-    // If user is authenticated, create a new assessment in Firestore
-    if (currentUser) {
+    // If user is authenticated and Firestore is available, create a new assessment
+    if (currentUser && firestoreAvailable) {
       try {
         const newAssessmentRef = await addDoc(collection(db, 'assessments'), {
           userId: currentUser.uid,
@@ -556,6 +607,7 @@ export function useAssessment() {
     forceCompleteAssessment,
     playAssistantResponse,
     resetAssessment,
-    assessmentId
+    assessmentId,
+    firestoreAvailable
   };
 }

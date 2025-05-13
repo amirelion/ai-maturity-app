@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 type SpeechRecognitionProps = {
   onResult?: (transcript: string) => void;
@@ -17,25 +17,55 @@ export function useSpeechRecognition({
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
   // Set up audio recording
   useEffect(() => {
-    let mediaRecorder: MediaRecorder | null = null;
-    const audioChunks: Blob[] = [];
-    
+    if (!isListening) {
+      // Clean up and stop recording if we were previously listening
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+          
+          // Stop all tracks on the stream
+          if (mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          }
+        } catch (err) {
+          console.error('Error stopping media recorder:', err);
+        }
+      }
+      return;
+    }
+
+    // Start recording if isListening is true
     const startRecording = async () => {
+      audioChunksRef.current = []; // Clear previous chunks
+      
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        // Check if browser supports getUserMedia
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Your browser does not support audio recording');
+        }
         
-        mediaRecorder.ondataavailable = (event) => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        
+        mediaRecorderRef.current.ondataavailable = (event) => {
           if (event.data.size > 0) {
-            audioChunks.push(event.data);
+            audioChunksRef.current.push(event.data);
           }
         };
         
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        mediaRecorderRef.current.onstop = async () => {
+          if (audioChunksRef.current.length === 0) {
+            setError('No audio recorded');
+            if (onError) onError('No audio recorded');
+            return;
+          }
+          
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           setAudioBlob(audioBlob);
           
           // Send to OpenAI for transcription
@@ -53,10 +83,18 @@ export function useSpeechRecognition({
             }
             
             const data = await response.json();
-            setTranscript(data.text);
+            const transcriptText = data.text?.trim();
+            
+            if (!transcriptText) {
+              setError('No speech detected. Please try again and speak clearly.');
+              if (onError) onError('No speech detected');
+              return;
+            }
+            
+            setTranscript(transcriptText);
             
             if (onResult) {
-              onResult(data.text);
+              onResult(transcriptText);
             }
           } catch (err) {
             console.error('Transcription error:', err);
@@ -69,10 +107,16 @@ export function useSpeechRecognition({
           }
         };
         
-        mediaRecorder.start();
+        mediaRecorderRef.current.onerror = (event) => {
+          console.error('Media recorder error:', event);
+          setError('Audio recording error');
+          if (onError) onError('Audio recording error');
+        };
+        
+        mediaRecorderRef.current.start();
         console.log('Recording started...');
       } catch (err) {
-        console.error('Media recorder error:', err);
+        console.error('Media recorder setup error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Could not access microphone';
         setError(errorMessage);
         
@@ -84,28 +128,21 @@ export function useSpeechRecognition({
       }
     };
     
-    const stopRecording = () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        console.log('Recording stopped...');
-        
-        // Stop all tracks on the stream
-        if (mediaRecorder.stream) {
-          mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        }
-      }
-    };
+    startRecording();
     
-    if (isListening) {
-      audioChunks.length = 0; // Clear previous chunks
-      startRecording();
-    } else if (mediaRecorder) {
-      stopRecording();
-    }
-    
+    // Cleanup function
     return () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        stopRecording();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+          
+          // Stop all tracks on the stream
+          if (mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          }
+        } catch (err) {
+          console.error('Error in cleanup:', err);
+        }
       }
     };
   }, [isListening, onResult, onError]);
