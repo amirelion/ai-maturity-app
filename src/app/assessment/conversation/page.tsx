@@ -16,6 +16,7 @@ export default function ConversationPage() {
 
   // Use our assessment hook for real functionality
   const { 
+    currentQuestion,
     conversation, 
     addResponse, 
     progress, 

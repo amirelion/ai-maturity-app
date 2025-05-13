@@ -27,6 +27,7 @@ export function useAssessment() {
   const [isAssessmentComplete, setIsAssessmentComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canForceComplete, setCanForceComplete] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(userInfoQuestions[0]);
   
   // Calculate progress
   const progress = Math.min(Math.round((currentQuestionIndex / (userInfoQuestions.slice(0, MAX_USER_INFO_QUESTIONS).length + 
@@ -94,42 +95,43 @@ export function useAssessment() {
     }
   }, [responses]);
   
-  // Get current question based on the conversation flow
-  const getCurrentQuestion = useCallback(() => {
+  // Update current question and context based on responses length
+  useEffect(() => {
+    let question: Question | null = null;
+    let context = currentContext;
+    
     // User info questions (limited to MAX_USER_INFO_QUESTIONS)
     if (responses.length < MAX_USER_INFO_QUESTIONS) {
-      setCurrentContext('userInfo');
-      return userInfoQuestions[responses.length];
+      context = 'userInfo';
+      question = userInfoQuestions[responses.length];
     }
-    
     // Productivity questions (ask 3)
-    if (responses.length < MAX_USER_INFO_QUESTIONS + 3) {
-      setCurrentContext('productivity');
-      return productivityQuestions[responses.length - MAX_USER_INFO_QUESTIONS];
+    else if (responses.length < MAX_USER_INFO_QUESTIONS + 3) {
+      context = 'productivity';
+      question = productivityQuestions[responses.length - MAX_USER_INFO_QUESTIONS];
     }
-    
     // Value Creation questions (ask 3)
-    if (responses.length < MAX_USER_INFO_QUESTIONS + 6) {
-      setCurrentContext('valueCreation');
-      return valueCreationQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 3)];
+    else if (responses.length < MAX_USER_INFO_QUESTIONS + 6) {
+      context = 'valueCreation';
+      question = valueCreationQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 3)];
     }
-    
     // Business Model questions (ask 3)
-    if (responses.length < MAX_USER_INFO_QUESTIONS + 9) {
-      setCurrentContext('businessModel');
-      return businessModelQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 6)];
+    else if (responses.length < MAX_USER_INFO_QUESTIONS + 9) {
+      context = 'businessModel';
+      question = businessModelQuestions[responses.length - (MAX_USER_INFO_QUESTIONS + 6)];
+    }
+    // If we've gone through all categories, return a closing question
+    else {
+      context = 'closing';
+      question = closingQuestions[0];
     }
     
-    // If we've gone through all categories, return a closing question
-    setCurrentContext('closing');
-    return closingQuestions[0];
+    setCurrentQuestion(question);
+    setCurrentContext(context);
   }, [responses.length]);
   
   // Add user response and get AI response
   const addResponse = useCallback(async (answer: string) => {
-    // Get the current question based on our flow logic
-    const currentQuestion = getCurrentQuestion();
-    
     if (!currentQuestion) {
       console.error('No current question available');
       return;
@@ -207,17 +209,12 @@ export function useAssessment() {
       ]);
       
       // Check if we should move to completing the assessment
-      if (responses.length >= MAX_USER_INFO_QUESTIONS + 9) {
+      if (responses.length >= MAX_USER_INFO_QUESTIONS + 8) { // -1 because we just added a new response
         // We've gone through all the question categories
         await completeAssessment();
       } else {
-        // Get the next question and add it to conversation
-        const nextQuestion = getCurrentQuestion();
-        
-        if (nextQuestion) {
-          // Update currentQuestionIndex just for progress tracking
-          setCurrentQuestionIndex(prev => prev + 1);
-        }
+        // Update currentQuestionIndex just for progress tracking
+        setCurrentQuestionIndex(prev => prev + 1);
       }
     } catch (err) {
       console.error('Error processing response:', err);
@@ -226,7 +223,7 @@ export function useAssessment() {
     } finally {
       setIsLoading(false);
     }
-  }, [responses, conversation, currentContext, getCurrentQuestion]);
+  }, [responses, conversation, currentContext, currentQuestion]);
   
   // Force complete the assessment
   const forceCompleteAssessment = useCallback(async () => {
@@ -386,7 +383,7 @@ export function useAssessment() {
   };
   
   return {
-    currentQuestion: getCurrentQuestion(),
+    currentQuestion,
     responses,
     addResponse,
     userInfo,
