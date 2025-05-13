@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -20,20 +19,25 @@ export async function POST(request: Request) {
       );
     }
     
-    // Store the email and assessment in Firestore
-    // In a real implementation, this would also trigger an email sending service
-    try {
-      await addDoc(collection(db, 'assessments'), {
-        email,
-        assessment,
-        createdAt: serverTimestamp(),
-      });
-    } catch (firebaseError) {
-      console.error('Firebase error:', firebaseError);
-      // Continue even if the database operation fails
-    }
+    // For demo purposes, we'll just log the data
+    // In a production implementation, this would store in Firestore and send an email
+    console.log('Demo mode: Would save assessment for', email);
     
-    // For demo purposes, we'll just pretend we sent the email
+    // Save the data only if we have a real db connection with Firestore collection method
+    if (db && typeof db.collection === 'function') {
+      try {
+        const { collection, addDoc, serverTimestamp } = require('firebase/firestore');
+        await addDoc(collection(db, 'assessments'), {
+          email,
+          assessment,
+          createdAt: serverTimestamp(),
+        });
+        console.log('Successfully saved to Firestore');
+      } catch (firebaseError) {
+        console.error('Firebase error:', firebaseError);
+        // Continue even if the database operation fails
+      }
+    }
     
     return NextResponse.json({ 
       success: true,
