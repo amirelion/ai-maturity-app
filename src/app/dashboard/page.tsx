@@ -9,8 +9,8 @@ import Link from 'next/link';
 import { MaturityLevel } from '@/types/assessment';
 
 // Helper to check if Firestore is available
-const isFirestoreAvailable = () => {
-  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
+const isFirestoreAvailable = (): boolean => {
+  return typeof window !== 'undefined' && db !== null && db !== undefined;
 };
 
 interface AssessmentCard {

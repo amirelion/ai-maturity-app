@@ -9,8 +9,8 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/contexts/AuthContext'
 
 // Helper to check if Firestore is available
-const isFirestoreAvailable = () => {
-  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
+const isFirestoreAvailable = (): boolean => {
+  return typeof window !== 'undefined' && db !== null && db !== undefined;
 };
 
 // Default strengths and opportunities if none are extracted from the analysis
