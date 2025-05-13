@@ -15,6 +15,7 @@ function ConversationContent() {
   const [input, setInput] = useState('')
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const playedLastMessageRef = useRef(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -30,7 +31,8 @@ function ConversationContent() {
     error,
     canForceComplete,
     forceCompleteAssessment,
-    playAssistantResponse
+    playAssistantResponse,
+    isAudioPlaying
   } = useAssessment()
 
   // Check if voice mode was selected
@@ -57,15 +59,48 @@ function ConversationContent() {
     }
   }, [isAssessmentComplete, assessment, router, assessmentId])
 
-  // Play the last assistant message if in voice mode
+  // Play the last assistant message if in voice mode - with improved handling
   useEffect(() => {
-    if (isVoiceMode && conversation.length > 0) {
+    // Reset the played flag when new messages are added
+    if (conversation.length > 0) {
       const lastMessage = conversation[conversation.length - 1];
-      if (lastMessage.role === 'assistant') {
+      
+      // Only play the message if:
+      // 1. We're in voice mode
+      // 2. The last message is from the assistant
+      // 3. We haven't already played this message
+      // 4. Audio is not currently playing
+      if (
+        isVoiceMode && 
+        lastMessage.role === 'assistant' && 
+        !playedLastMessageRef.current && 
+        !isAudioPlaying
+      ) {
+        // Set the flag to prevent repeated playback
+        playedLastMessageRef.current = true;
+        
+        // Play the message
         playAssistantResponse(lastMessage.content);
       }
     }
-  }, [isVoiceMode, conversation, playAssistantResponse]);
+  }, [isVoiceMode, conversation, playAssistantResponse, isAudioPlaying]);
+
+  // Reset the played flag when audio playback ends
+  useEffect(() => {
+    const handleAudioEnd = () => {
+      // After audio playback completes, we can set the flag to false so the next message can play
+      if (!isAudioPlaying) {
+        playedLastMessageRef.current = false;
+      }
+    };
+    
+    // This will trigger when audio playback ends
+    window.addEventListener('audio-playback-end', handleAudioEnd);
+    
+    return () => {
+      window.removeEventListener('audio-playback-end', handleAudioEnd);
+    };
+  }, [isAudioPlaying]);
 
   const handleSendMessage = () => {
     if (input.trim() === '' || isLoading) return
@@ -81,7 +116,12 @@ function ConversationContent() {
   }
 
   const toggleVoiceMode = () => {
-    setIsVoiceMode(prev => !prev)
+    setIsVoiceMode(prev => {
+      const newValue = !prev;
+      // Save preference to localStorage
+      localStorage.setItem('useVoice', newValue.toString());
+      return newValue;
+    });
   }
 
   const handleCompleteAssessment = async () => {
