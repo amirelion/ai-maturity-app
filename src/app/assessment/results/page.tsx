@@ -101,8 +101,11 @@ function ResultsContent() {
       setError(null)
       
       // If we have an assessmentId, user is authenticated, and Firestore is available, try to load from Firestore
-      if (assessmentId && currentUser && firestoreAvailable && db) {
+      if (assessmentId && currentUser && firestoreAvailable) {
         try {
+          if (!db) {
+            throw new Error('Firestore database is not initialized');
+          }
           const assessmentRef = doc(db, 'assessments', assessmentId)
           const assessmentSnap = await getDoc(assessmentRef)
           

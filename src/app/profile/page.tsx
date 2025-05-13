@@ -23,12 +23,16 @@ export default function ProfilePage() {
         
         // Get additional user information from Firestore
         try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setIndustry(userData.industry || '');
-            setRole(userData.role || '');
-            setOrgSize(userData.orgSize || '');
+          if (db) { // Check if db exists
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setIndustry(userData.industry || '');
+              setRole(userData.role || '');
+              setOrgSize(userData.orgSize || '');
+            }
+          } else {
+            console.error('Firestore database is not initialized');
           }
         } catch (error) {
           console.error('Error loading user profile:', error);
@@ -52,14 +56,18 @@ export default function ProfilePage() {
         });
         
         // Update Firestore user document
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          name,
-          industry,
-          role,
-          orgSize,
-          updatedAt: new Date()
-        });
+        if (db) { // Check if db exists
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, {
+            name,
+            industry,
+            role,
+            orgSize,
+            updatedAt: new Date()
+          });
+        } else {
+          throw new Error('Firestore database is not initialized');
+        }
         
         setMessage({ 
           type: 'success', 

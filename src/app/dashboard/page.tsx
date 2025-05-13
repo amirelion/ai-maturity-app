@@ -117,6 +117,9 @@ export default function DashboardPage() {
     }
     
     try {
+      if (!db) {
+        throw new Error('Firestore database is not initialized');
+      }
       await deleteDoc(doc(db, 'assessments', assessmentId));
       setAssessments(prev => prev.filter(assessment => assessment.id !== assessmentId));
       setDeleteConfirmation(null);

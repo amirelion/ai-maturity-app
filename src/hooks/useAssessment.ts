@@ -87,6 +87,10 @@ export function useAssessment() {
         setIsLoading(true);
         try {
           // Check for in-progress assessment
+          if (!db) {
+            throw new Error('Firestore database is not initialized');
+          }
+
           const assessmentsRef = collection(db, 'assessments');
           const q = query(
             assessmentsRef, 
@@ -115,6 +119,10 @@ export function useAssessment() {
           } else {
             // Create a new assessment
             try {
+              if (!db) {
+                throw new Error('Firestore database is not initialized');
+              }
+
               const newAssessmentRef = await addDoc(collection(db, 'assessments'), {
                 userId: currentUser.uid,
                 status: 'in-progress',
@@ -200,6 +208,10 @@ export function useAssessment() {
     const saveToFirestore = async () => {
       if (currentUser && assessmentId && !isLoading && firestoreAvailable) {
         try {
+          if (!db) {
+            throw new Error('Firestore database is not initialized');
+          }
+
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
             responses,
@@ -443,6 +455,10 @@ export function useAssessment() {
       // If user is authenticated, save completed assessment to Firestore
       if (currentUser && assessmentId && firestoreAvailable) {
         try {
+          if (!db) {
+            throw new Error('Firestore database is not initialized');
+          }
+
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
             status: 'completed',
@@ -504,6 +520,10 @@ export function useAssessment() {
       // Save the demo assessment
       if (currentUser && assessmentId && firestoreAvailable) {
         try {
+          if (!db) {
+            throw new Error('Firestore database is not initialized');
+          }
+          
           const assessmentRef = doc(db, 'assessments', assessmentId);
           await updateDoc(assessmentRef, {
             status: 'completed',
@@ -592,6 +612,10 @@ export function useAssessment() {
     // If user is authenticated and Firestore is available, create a new assessment
     if (currentUser && firestoreAvailable) {
       try {
+        if (!db) {
+          throw new Error('Firestore database is not initialized');
+        }
+        
         const newAssessmentRef = await addDoc(collection(db, 'assessments'), {
           userId: currentUser.uid,
           status: 'in-progress',
