@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
@@ -15,24 +15,31 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase for client-side
-let app: FirebaseApp | undefined;
+let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let googleProvider: GoogleAuthProvider;
 
-// Only initialize Firebase if we're in a browser environment and the app isn't already initialized
-if (typeof window !== 'undefined' && getApps().length === 0) {
+if (typeof window !== 'undefined') {
   try {
-    app = initializeApp(firebaseConfig);
+    // Initialize Firebase
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    
+    // Initialize Authentication
     auth = getAuth(app);
+    
+    // Initialize Firestore
     db = getFirestore(app);
+    
+    // Initialize Google Authentication Provider
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }
 } else {
-  // For server-side, use existing apps or create placeholders
-  app = undefined;
-  auth = {} as Auth;
-  db = {} as Firestore;
+  // Handling for server-side rendering
+  console.warn('Firebase is not initialized on server-side');
 }
 
-export { app, auth, db };
+export { app, auth, db, googleProvider };

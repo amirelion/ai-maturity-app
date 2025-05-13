@@ -1,12 +1,13 @@
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
   updateProfile,
   User
 } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, googleProvider } from './firebase';
 
 // Register a new user
 export async function registerUser(email: string, password: string, displayName?: string) {
@@ -31,6 +32,17 @@ export async function signIn(email: string, password: string) {
   } catch (error: any) {
     console.error('Error signing in:', error);
     throw new Error(error.message || 'An error occurred during sign in');
+  }
+}
+
+// Sign in with Google
+export async function signInWithGoogle() {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error: any) {
+    console.error('Error signing in with Google:', error);
+    throw new Error(error.message || 'An error occurred during Google sign in');
   }
 }
 

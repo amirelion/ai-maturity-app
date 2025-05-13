@@ -61,23 +61,24 @@ This application helps organizations evaluate their AI maturity across three key
 
 3. Set up environment variables (see next section)
 
-4. Run the development server:
+4. Configure Firebase (see [Firebase Setup Guide](docs/firebase-setup.md))
+
+5. Run the development server:
    ```bash
    npm run dev
    # or
    yarn dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
 ### Environment Variables
 
-Create a `.env.local` file in the root directory with the following variables:
+Create a `.env.local` file in the root directory based on the `.env.local.example` file:
 
 ```
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
-OPENAI_ORGANIZATION=your_openai_org_id (optional)
 
 # Firebase Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
@@ -90,8 +91,9 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
 
 # Resend Email Service
 RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM=your_verified_email@domain.com
 ```
+
+> ⚠️ **Important**: Make sure to replace the placeholder values with actual Firebase configuration values from your Firebase project. Incorrect values will cause authentication and database errors.
 
 ## 🏗️ Project Structure
 
@@ -121,6 +123,7 @@ ai-maturity-app/
 │   └── utils/                 # Helper functions
 ├── docs/                      # Documentation
 ├── .env.example               # Example environment variables
+├── .env.local.example         # Example local environment variables with structure
 ├── .env.local                 # Local environment variables (gitignored)
 ├── next.config.js             # Next.js configuration
 ├── package.json               # Project dependencies
@@ -156,9 +159,11 @@ The application provides a complete authentication system:
 
 3. **Password Recovery**: Users can reset their passwords via email.
 
-4. **Profile Management**: Users can update their profile information.
+4. **Google Authentication**: Users can sign in with their Google accounts for a streamlined experience.
 
-5. **Session Persistence**: Authentication state persists across page refreshes.
+5. **Profile Management**: Users can update their profile information.
+
+6. **Session Persistence**: Authentication state persists across page refreshes.
 
 ### Dashboard
 
@@ -208,6 +213,7 @@ Detailed documentation is available in the `/docs` directory:
 
 - [User Guide](docs/user-guide.md): Instructions for end users
 - [Developer Guide](docs/developer-guide.md): Technical documentation
+- [Firebase Setup Guide](docs/firebase-setup.md): Detailed Firebase configuration instructions
 - [Auth & Firebase Integration](docs/auth-firebase-guide.md): Authentication and database implementation
 - [Setup Guide](docs/setup-guide.md): Detailed setup instructions
 - [Deployment Guide](docs/deployment-guide.md): Deployment instructions
