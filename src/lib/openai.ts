@@ -1,133 +1,258 @@
-// This is a placeholder for the actual OpenAI integration
-// In a real application, you would use the OpenAI SDK and implement proper API calls
-
+import OpenAI from "openai";
+import { 
+  openaiConfig, 
+  systemPrompts,
+  maturityFramework
+} from "@/config/ai-config";
 import { AssessmentResult, Response, UserInfo, MaturityLevel } from '@/types/assessment';
 
-// Simulated function to generate a text response from OpenAI
+// Initialize OpenAI client
+const getOpenAIClient = () => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.error("OpenAI API key is not defined");
+    return null;
+  }
+
+  return new OpenAI({
+    apiKey,
+    dangerouslyAllowBrowser: true // Note: In production, avoid exposing API key to the browser
+  });
+}
+
+// Generate a response in the conversation
 export async function generateAssistantResponse(
-  conversation: { role: 'user' | 'assistant'; content: string }[],
-  systemPrompt: string = 'You are a helpful AI assistant conducting an AI maturity assessment.'
+  conversation: { role: 'user' | 'assistant' | 'system'; content: string }[],
+  systemPrompt: string = systemPrompts.conversationIntro
 ): Promise<string> {
-  console.log('Generating response using conversation:', conversation);
+  const openai = getOpenAIClient();
   
-  // In a real implementation, this would call the OpenAI API
-  // For demo purposes, we'll return hardcoded responses based on simple pattern matching
+  if (!openai) {
+    throw new Error("OpenAI client not initialized");
+  }
   
-  const lastUserMessage = conversation.filter(msg => msg.role === 'user').pop()?.content.toLowerCase() || '';
-  
-  // Simple pattern matching for demo purposes
-  if (lastUserMessage.includes('industry') || lastUserMessage.includes('sector')) {
-    return "Thanks for sharing that information about your industry. Understanding your specific sector helps me contextualize your AI journey. What's the approximate size of your organization?";
-  } else if (lastUserMessage.includes('organization') || lastUserMessage.includes('company size')) {
-    return "Got it, thanks. Now I'd like to understand your experience with AI productivity tools. Have you or your team used tools like ChatGPT, Copilot, or other AI assistants for work-related tasks?";
-  } else if (lastUserMessage.includes('productivity') || lastUserMessage.includes('experience with ai')) {
-    return "That's helpful context. Now, shifting to your products and services, has your organization integrated any AI features or capabilities into your customer-facing offerings?";
-  } else if (lastUserMessage.includes('product') || lastUserMessage.includes('service')) {
-    return "Interesting. Let's talk about your business model. Do you see AI potentially changing your fundamental business model or creating new revenue streams in the next few years?";
-  } else if (lastUserMessage.includes('business model') || lastUserMessage.includes('revenue')) {
-    return "We're making great progress! Based on everything you've shared, what would you say is your organization's biggest strength when it comes to AI adoption?";
-  } else {
-    return "Thank you for sharing that. We're getting a good picture of your AI maturity. Let's continue with another question. What's your biggest challenge when implementing AI in your organization right now?";
+  try {
+    // Prepare conversation with system prompt
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...conversation
+    ];
+    
+    // Call OpenAI API
+    const response = await openai.chat.completions.create({
+      model: openaiConfig.conversationModel.modelId,
+      temperature: openaiConfig.conversationModel.temperature,
+      max_tokens: openaiConfig.conversationModel.maxTokens,
+      messages: messages as any
+    });
+    
+    return response.choices[0]?.message.content || "I'm sorry, I couldn't generate a response.";
+  } catch (error) {
+    console.error("Error calling OpenAI:", error);
+    throw error;
   }
 }
 
-// Simulated function for text-to-speech
+// Text-to-speech conversion
 export async function textToSpeech(text: string): Promise<ArrayBuffer> {
-  console.log('Converting to speech:', text);
+  const openai = getOpenAIClient();
   
-  // In a real implementation, this would call the OpenAI text-to-speech API
-  // For demo purposes, we'll return a mock function that doesn't actually do anything
+  if (!openai) {
+    throw new Error("OpenAI client not initialized");
+  }
   
-  return new ArrayBuffer(0);
+  try {
+    const response = await openai.audio.speech.create({
+      model: openaiConfig.speechModel.modelId,
+      voice: openaiConfig.speechModel.voice,
+      input: text,
+    });
+    
+    // Convert to arrayBuffer
+    const buffer = await response.arrayBuffer();
+    return buffer;
+  } catch (error) {
+    console.error("Error converting text to speech:", error);
+    throw error;
+  }
 }
 
-// Simulated function for speech-to-text
+// Speech-to-text conversion
 export async function speechToText(audioData: Blob): Promise<string> {
-  console.log('Converting speech to text');
+  const openai = getOpenAIClient();
   
-  // In a real implementation, this would call the OpenAI speech-to-text API
-  // For demo purposes, we'll return a mock response
+  if (!openai) {
+    throw new Error("OpenAI client not initialized");
+  }
   
-  return "This is a simulated transcription of speech input for demonstration purposes.";
+  try {
+    const response = await openai.audio.transcriptions.create({
+      file: new File([audioData], "audio.webm", { type: "audio/webm" }),
+      model: "whisper-1",
+    });
+    
+    return response.text;
+  } catch (error) {
+    console.error("Error converting speech to text:", error);
+    throw error;
+  }
 }
 
-// Generate a maturity assessment based on user responses
+// Generate a complete AI maturity assessment
 export async function generateMaturityAssessment(
   userInfo: UserInfo,
   responses: Response[]
 ): Promise<AssessmentResult> {
-  console.log('Generating assessment for:', userInfo);
+  const openai = getOpenAIClient();
   
-  // In a real implementation, this would call the OpenAI API to analyze responses
-  // For demo purposes, we'll return a mock assessment
+  if (!openai) {
+    throw new Error("OpenAI client not initialized");
+  }
   
-  // Simple scoring algorithm for demo
-  const getRandomScore = (min: number, max: number) => {
-    return Number((Math.random() * (max - min) + min).toFixed(1));
-  };
-  
-  const productivityScore = getRandomScore(1.5, 3.5);
-  const valueCreationScore = getRandomScore(1.0, 3.0);
-  const businessModelScore = getRandomScore(1.0, 4.0);
-  
-  const getMaturityLevel = (score: number): MaturityLevel => {
-    if (score <= 1.5) return MaturityLevel.Exploring;
-    if (score <= 2.5) return MaturityLevel.Experimenting;
-    if (score <= 3.5) return MaturityLevel.Implementing;
-    return MaturityLevel.Transforming;
-  };
-  
-  const averageScore = Number(((productivityScore + valueCreationScore + businessModelScore) / 3).toFixed(1));
-  
-  return {
-    userInfo,
-    productivity: {
-      score: productivityScore,
-      level: getMaturityLevel(productivityScore),
-      strengths: [
-        'Good adoption of basic AI productivity tools',
-        'Leadership support for efficiency improvements',
-        'Clear ROI metrics for productivity initiatives'
-      ],
-      opportunities: [
-        'Formalize AI training program for all employees',
-        'Establish internal knowledge sharing for AI use cases',
-        'Create AI Center of Excellence to accelerate adoption'
+  try {
+    // Format the conversation history for analysis
+    const formattedResponses = responses.map(r => 
+      `Question: ${r.questionId}\nAnswer: ${r.answer}\n`
+    ).join("\n");
+    
+    // Create the prompt for analysis
+    const analysisPrompt = `
+${systemPrompts.analysisInstruction}
+
+## User Information:
+Name: ${userInfo.name}
+Role: ${userInfo.role}
+Industry: ${userInfo.industry}
+Organization Size: ${userInfo.orgSize}
+
+## Conversation Transcript:
+${formattedResponses}
+
+## Maturity Framework:
+Level 1 (Exploring): ${maturityFramework.levels.exploring.description}
+Level 2 (Experimenting): ${maturityFramework.levels.experimenting.description}
+Level 3 (Implementing): ${maturityFramework.levels.implementing.description}
+Level 4 (Transforming): ${maturityFramework.levels.transforming.description}
+
+Provide a comprehensive analysis, including specific scores for each area on a scale of 1.0 to 4.0.
+`;
+
+    // Call OpenAI for analysis
+    const response = await openai.chat.completions.create({
+      model: openaiConfig.analysisModel.modelId,
+      temperature: openaiConfig.analysisModel.temperature,
+      max_tokens: openaiConfig.analysisModel.maxTokens,
+      messages: [
+        { role: "system", content: systemPrompts.analysisInstruction },
+        { role: "user", content: analysisPrompt }
       ]
-    },
-    valueCreation: {
-      score: valueCreationScore,
-      level: getMaturityLevel(valueCreationScore),
-      strengths: [
-        'Early experiments with AI-enhanced features',
-        'Customer feedback mechanisms in place',
-        'Cross-functional innovation teams established'
-      ],
-      opportunities: [
-        'Develop comprehensive AI product strategy',
-        'Establish customer co-creation program for AI features',
-        'Create dedicated budget for AI product innovation'
-      ]
-    },
-    businessModel: {
-      score: businessModelScore,
-      level: getMaturityLevel(businessModelScore),
-      strengths: [
-        'Executive awareness of AI disruption potential',
-        'Initial exploration of new AI-enabled services',
-        'Willingness to experiment with business model changes'
-      ],
-      opportunities: [
-        'Conduct formal AI disruption risk assessment',
-        'Explore data monetization opportunities',
-        'Pilot AI-native business units separate from core business'
-      ]
-    },
-    overall: {
-      score: averageScore,
-      level: getMaturityLevel(averageScore)
-    },
-    responses,
-    timestamp: Date.now()
-  };
+    });
+    
+    const analysisText = response.choices[0]?.message.content || "";
+    
+    // Extract scores and insights from the analysis text
+    // This is a simplified parsing implementation
+    // In a production app, you might want more robust parsing
+    const productivityScore = extractScore(analysisText, "productivity") || 2.5;
+    const valueCreationScore = extractScore(analysisText, "value creation") || 2.0;
+    const businessModelScore = extractScore(analysisText, "business model") || 1.8;
+    
+    // Calculate overall score using the weightings
+    const overallScore = (
+      productivityScore * maturityFramework.weightings.productivity +
+      valueCreationScore * maturityFramework.weightings.valueCreation +
+      businessModelScore * maturityFramework.weightings.businessModel
+    );
+    
+    // Extract strengths and opportunities
+    const productivityStrengths = extractPoints(analysisText, "productivity", "strength");
+    const productivityOpportunities = extractPoints(analysisText, "productivity", "opportunit");
+    
+    const valueStrengths = extractPoints(analysisText, "value creation", "strength");
+    const valueOpportunities = extractPoints(analysisText, "value creation", "opportunit");
+    
+    const businessStrengths = extractPoints(analysisText, "business model", "strength");
+    const businessOpportunities = extractPoints(analysisText, "business model", "opportunit");
+    
+    // Determine maturity levels
+    const getMaturityLevel = (score: number): MaturityLevel => {
+      if (score <= maturityFramework.levels.exploring.range.max) return MaturityLevel.Exploring;
+      if (score <= maturityFramework.levels.experimenting.range.max) return MaturityLevel.Experimenting;
+      if (score <= maturityFramework.levels.implementing.range.max) return MaturityLevel.Implementing;
+      return MaturityLevel.Transforming;
+    };
+    
+    // Create the assessment result
+    const assessment: AssessmentResult = {
+      userInfo,
+      productivity: {
+        score: productivityScore,
+        level: getMaturityLevel(productivityScore),
+        strengths: productivityStrengths,
+        opportunities: productivityOpportunities
+      },
+      valueCreation: {
+        score: valueCreationScore,
+        level: getMaturityLevel(valueCreationScore),
+        strengths: valueStrengths,
+        opportunities: valueOpportunities
+      },
+      businessModel: {
+        score: businessModelScore,
+        level: getMaturityLevel(businessModelScore),
+        strengths: businessStrengths,
+        opportunities: businessOpportunities
+      },
+      overall: {
+        score: Number(overallScore.toFixed(1)),
+        level: getMaturityLevel(overallScore)
+      },
+      responses,
+      timestamp: Date.now()
+    };
+    
+    return assessment;
+  } catch (error) {
+    console.error("Error generating assessment:", error);
+    throw error;
+  }
+}
+
+// Helper function to extract a score from LLM output
+function extractScore(text: string, areaName: string): number | null {
+  // Look for patterns like "Productivity: 2.5" or "Productivity Score: 2.5/4.0"
+  const regex = new RegExp(`${areaName}[^\\d]+(\\d+\\.?\\d*)`, 'i');
+  const match = text.match(regex);
+  if (match && match[1]) {
+    return parseFloat(match[1]);
+  }
+  return null;
+}
+
+// Helper function to extract bullet points related to strengths or opportunities
+function extractPoints(text: string, areaName: string, pointType: string): string[] {
+  // Try to find a section that looks like "Productivity Strengths:" followed by bullet points or numbered list
+  const sectionRegex = new RegExp(
+    `${areaName}[^\\n]*${pointType}[^\\n]*\\n((?:\\s*[-*•].*\\n|\\s*\\d+\\..*\\n)+)`,
+    'i'
+  );
+  
+  const sectionMatch = text.match(sectionRegex);
+  
+  if (sectionMatch && sectionMatch[1]) {
+    // Extract individual points
+    const pointsText = sectionMatch[1];
+    const points = pointsText
+      .split('\n')
+      .map(line => line.replace(/^\s*[-*•]\s*|\s*\d+\.\s*/, '').trim())
+      .filter(line => line.length > 0);
+    
+    return points;
+  }
+  
+  // Fallback: return some generic points
+  return [
+    `Further ${pointType} opportunities will be identified based on assessment`,
+    `Additional analysis needed for ${areaName} ${pointType}s`
+  ];
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface VoiceRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -13,54 +14,38 @@ export default function VoiceRecorder({
   isListening,
   setIsListening
 }: VoiceRecorderProps) {
-  const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   
-  // In a real implementation, we would use the Web Speech API or a similar library
-  // For this demo, we'll simulate recording and transcription
+  const { 
+    transcript, 
+    error: recognitionError, 
+    toggleListening 
+  } = useSpeechRecognition({
+    onResult: (text) => {
+      onTranscriptionComplete(text);
+    },
+    onError: (err) => {
+      setError(err);
+    },
+    autoStart: false
+  });
   
+  // Sync the listening state with the parent component
   useEffect(() => {
-    let timerId: NodeJS.Timeout;
-    
-    if (isListening) {
-      // Simulate recording with progress updates
-      setTranscript('Listening...');
-      
-      // Simulate a transcript being generated after a delay
-      timerId = setTimeout(() => {
-        // Generate a mock response based on where we are in the conversation
-        // In a real app, this would come from the actual transcription
-        setTranscript('This is a simulated voice transcription for demo purposes');
-        setIsListening(false);
-        
-        // Pass transcription to parent component
-        onTranscriptionComplete('This is a simulated voice transcription for demo purposes');
-      }, 3000);
-    } else {
-      setTranscript('');
-    }
-    
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [isListening, onTranscriptionComplete, setIsListening]);
+    toggleListening();
+  }, [isListening, toggleListening]);
   
-  const toggleListening = () => {
-    // In a real app, we would request microphone permission here
-    // and handle any errors
-    try {
-      setError(null);
-      setIsListening(!isListening);
-    } catch (err) {
-      setError('Could not access microphone. Please check permissions.');
-      console.error('Microphone error:', err);
+  // Propagate errors from speech recognition
+  useEffect(() => {
+    if (recognitionError) {
+      setError(recognitionError);
     }
-  };
+  }, [recognitionError]);
 
   return (
     <div className="w-full">
       <button
-        onClick={toggleListening}
+        onClick={() => setIsListening(!isListening)}
         className={`w-full p-4 rounded-lg border ${
           isListening 
             ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-900/20' 

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { speechToText } from '@/lib/openai';
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('audio') as Blob;
     
     if (!audioFile) {
       return NextResponse.json(
@@ -12,12 +13,9 @@ export async function POST(request: Request) {
       );
     }
     
-    // In a real implementation, this would call the OpenAI API to transcribe the audio
-    // For demo purposes, we'll just return a mock transcription
+    const transcription = await speechToText(audioFile);
     
-    return NextResponse.json({ 
-      text: "This is a simulated transcription of the audio input for demonstration purposes." 
-    });
+    return NextResponse.json({ text: transcription });
   } catch (error) {
     console.error('Error in transcribe API:', error);
     return NextResponse.json(

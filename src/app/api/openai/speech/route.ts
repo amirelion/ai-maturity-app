@@ -12,12 +12,16 @@ export async function POST(request: Request) {
       );
     }
     
-    // In a real implementation, this would call the OpenAI API and return audio
-    // For demo purposes, we'll just return a success message
+    const audioBuffer = await textToSpeech(text);
     
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Text-to-speech conversion successful (simulated)',
+    // Convert to base64 to send over JSON
+    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+    
+    return new NextResponse(audioBuffer, {
+      headers: {
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': audioBuffer.byteLength.toString()
+      }
     });
   } catch (error) {
     console.error('Error in speech API:', error);

@@ -3,25 +3,53 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Question, Response, UserInfo, AssessmentResult } from '@/types/assessment';
 import { allQuestions } from '@/lib/questions';
+import { questionsBank } from '@/config/ai-config';
 
 export function useAssessment() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Response[]>([]);
   const [userInfo, setUserInfo] = useState<Partial<UserInfo>>({});
   const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
-  const [conversation, setConversation] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
+  const [conversation, setConversation] = useState<{ role: 'user' | 'assistant' | 'system'; content: string }[]>([
     { 
       role: 'assistant', 
       content: allQuestions[0].text 
     }
   ]);
+  const [currentContext, setCurrentContext] = useState<string>('userInfo');
   const [isLoading, setIsLoading] = useState(false);
   const [isAssessmentComplete, setIsAssessmentComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Calculate progress
   const progress = Math.min(Math.round((currentQuestionIndex / allQuestions.length) * 100), 100);
   
-  // Add user response
+  // Determine conversation context based on current question
+  useEffect(() => {
+    const currentQuestion = allQuestions[currentQuestionIndex];
+    if (!currentQuestion) return;
+    
+    switch (currentQuestion.valueArea) {
+      case 'general':
+        if (currentQuestion.id.startsWith('user-')) {
+          setCurrentContext('userInfo');
+        } else if (currentQuestion.id.startsWith('closing-')) {
+          setCurrentContext('closing');
+        }
+        break;
+      case 'productivity':
+        setCurrentContext('productivity');
+        break;
+      case 'valueCreation':
+        setCurrentContext('valueCreation');
+        break;
+      case 'businessModel':
+        setCurrentContext('businessModel');
+        break;
+    }
+  }, [currentQuestionIndex]);
+  
+  // Add user response and get AI response
   const addResponse = useCallback(async (answer: string) => {
     const currentQuestion = allQuestions[currentQuestionIndex];
     
@@ -41,12 +69,9 @@ export function useAssessment() {
     ]);
     
     setIsLoading(true);
+    setError(null);
     
     try {
-      // In a real implementation, this would call the API to get the assistant's response
-      // For demo purposes, we'll use a timeout to simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       // Update user info if this was a user info question
       if (currentQuestion.valueArea === 'general' && currentQuestion.id.startsWith('user-')) {
         if (currentQuestion.id === 'user-name-role') {
@@ -74,16 +99,34 @@ export function useAssessment() {
         }
       }
       
+      // Call API to get AI response
+      const response = await fetch('/api/openai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversation: conversation.concat({ role: 'user', content: answer }),
+          context: currentContext
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const assistantResponse = data.response;
+      
+      // Add assistant's response to conversation
+      setConversation(prev => [
+        ...prev,
+        { role: 'assistant', content: assistantResponse }
+      ]);
+      
       // Move to next question if available
       if (currentQuestionIndex < allQuestions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
-        
-        // Add assistant's next question to conversation
-        const nextQuestion = allQuestions[currentQuestionIndex + 1];
-        setConversation(prev => [
-          ...prev,
-          { role: 'assistant', content: nextQuestion.text }
-        ]);
       } else {
         // Assessment complete
         setIsAssessmentComplete(true);
@@ -98,46 +141,95 @@ export function useAssessment() {
         ]);
         
         // Generate assessment results
-        // In a real implementation, this would call the API
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // For demo purposes, we'll generate a mock assessment
-        const mockAssessment: AssessmentResult = {
-          userInfo: userInfo as UserInfo,
-          productivity: {
-            score: 2.5,
-            level: 2,
-            strengths: ['Good adoption of basic AI tools', 'Clear vision for productivity improvements'],
-            opportunities: ['Expand training programs', 'Establish AI governance']
-          },
-          valueCreation: {
-            score: 1.8,
-            level: 2,
-            strengths: ['Early experimentation with AI features', 'Customer-centric approach'],
-            opportunities: ['Develop AI product roadmap', 'Enhance data capabilities']
-          },
-          businessModel: {
-            score: 3.2,
-            level: 3,
-            strengths: ['Leadership vision for transformation', 'Willingness to disrupt status quo'],
-            opportunities: ['Pilot new business models', 'Develop ecosystem partnerships']
-          },
-          overall: {
-            score: 2.5,
-            level: 2
-          },
-          responses,
-          timestamp: Date.now()
-        };
-        
-        setAssessment(mockAssessment);
+        await generateAssessmentResults();
       }
-    } catch (error) {
-      console.error('Error processing response:', error);
+    } catch (err) {
+      console.error('Error processing response:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  }, [currentQuestionIndex, userInfo, responses]);
+  }, [currentQuestionIndex, userInfo, responses, conversation, currentContext]);
+  
+  // Generate assessment results using the API
+  const generateAssessmentResults = async () => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/assessment/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userInfo,
+          responses
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis API error: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setAssessment(data.assessment);
+    } catch (err) {
+      console.error('Error generating assessment:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Could not generate assessment';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Play audio for assistant responses (if using voice mode)
+  const playAssistantResponse = async (text: string) => {
+    try {
+      const response = await fetch('/api/openai/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+      
+      const audioArrayBuffer = await response.arrayBuffer();
+      const audioContext = new AudioContext();
+      const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+      
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      source.start();
+      
+      return new Promise<void>((resolve) => {
+        source.onended = () => resolve();
+      });
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      return Promise.resolve(); // Continue even if audio fails
+    }
+  };
+  
+  // Reset the assessment
+  const resetAssessment = () => {
+    setCurrentQuestionIndex(0);
+    setResponses([]);
+    setUserInfo({});
+    setAssessment(null);
+    setConversation([{ 
+      role: 'assistant', 
+      content: allQuestions[0].text 
+    }]);
+    setIsAssessmentComplete(false);
+    setError(null);
+    setCurrentContext('userInfo');
+  };
   
   return {
     currentQuestion: allQuestions[currentQuestionIndex],
@@ -148,6 +240,9 @@ export function useAssessment() {
     progress,
     isLoading,
     isAssessmentComplete,
-    assessment
+    assessment,
+    error,
+    playAssistantResponse,
+    resetAssessment
   };
 }
