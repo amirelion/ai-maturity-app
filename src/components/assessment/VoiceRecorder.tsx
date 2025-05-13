@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface VoiceRecorderProps {
@@ -16,11 +16,14 @@ export default function VoiceRecorder({
 }: VoiceRecorderProps) {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const recordingAttemptedRef = useRef(false);
   
   const { 
     transcript, 
     error: recognitionError, 
-    toggleListening,
+    startListening: startSpeechRecognition,
+    stopListening: stopSpeechRecognition,
     isListening: isSpeechRecognitionListening
   } = useSpeechRecognition({
     onResult: (text) => {
@@ -29,6 +32,8 @@ export default function VoiceRecorder({
         try {
           onTranscriptionComplete(text);
           setIsProcessing(false);
+          // Reset the recording attempted flag after successfully processing a transcript
+          recordingAttemptedRef.current = false;
         } catch (err) {
           console.error("Error processing transcription:", err);
           setError("Failed to process your response. Please try again.");
@@ -46,29 +51,48 @@ export default function VoiceRecorder({
     autoStart: false
   });
   
-  // Handle button click
+  // Handle button click to toggle recording
   const handleToggleListening = () => {
+    // If audio is playing, don't do anything
+    if (isAudioPlaying) return;
+    
     // Clear any previous errors
     setError(null);
     
     // Only toggle if not currently processing
     if (!isProcessing) {
-      setIsListening(!isListening);
+      if (isListening) {
+        stopSpeechRecognition();
+        setIsListening(false);
+      } else {
+        // Set a flag to indicate we've attempted to start recording
+        recordingAttemptedRef.current = true;
+        startSpeechRecognition();
+        setIsListening(true);
+      }
     }
   };
   
-  // Sync the listening state with the parent component
+  // Sync listening state to the speech recognition state
+  // but only after user has clicked the button, indicated by recordingAttemptedRef
   useEffect(() => {
-    if (isListening !== isSpeechRecognitionListening) {
-      try {
-        toggleListening();
-      } catch (err) {
-        console.error("Error toggling speech recognition:", err);
-        setError("Failed to access microphone. Please check your permissions.");
-        setIsListening(false);
+    // Only sync states if we've attempted recording at least once
+    if (recordingAttemptedRef.current) {
+      if (isListening !== isSpeechRecognitionListening) {
+        if (isListening) {
+          try {
+            startSpeechRecognition();
+          } catch (err) {
+            console.error("Error starting speech recognition:", err);
+            setError("Failed to access microphone. Please check your permissions.");
+            setIsListening(false);
+          }
+        } else {
+          stopSpeechRecognition();
+        }
       }
     }
-  }, [isListening, isSpeechRecognitionListening, toggleListening, setIsListening]);
+  }, [isListening, isSpeechRecognitionListening, startSpeechRecognition, stopSpeechRecognition, setIsListening]);
   
   // Propagate errors from speech recognition
   useEffect(() => {
@@ -77,21 +101,50 @@ export default function VoiceRecorder({
     }
   }, [recognitionError]);
 
+  // Track audio playback to prevent button actions during playback
+  useEffect(() => {
+    const handleAudioStart = () => {
+      setIsAudioPlaying(true);
+    };
+    
+    const handleAudioEnd = () => {
+      setIsAudioPlaying(false);
+    };
+    
+    window.addEventListener('audio-playback-start', handleAudioStart);
+    window.addEventListener('audio-playback-end', handleAudioEnd);
+    
+    return () => {
+      window.removeEventListener('audio-playback-start', handleAudioStart);
+      window.removeEventListener('audio-playback-end', handleAudioEnd);
+    };
+  }, []);
+
   return (
     <div className="w-full">
       <button
         onClick={handleToggleListening}
-        disabled={isProcessing}
+        disabled={isProcessing || isAudioPlaying}
         className={`w-full p-4 rounded-lg border ${
-          isProcessing 
-            ? 'border-yellow-500 bg-yellow-50 text-yellow-500 dark:bg-yellow-900/20 cursor-wait' 
-            : isListening 
-              ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-900/20' 
-              : 'border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300'
+          isAudioPlaying
+            ? 'border-blue-500 bg-blue-50 text-blue-500 dark:bg-blue-900/20 cursor-not-allowed'
+            : isProcessing 
+              ? 'border-yellow-500 bg-yellow-50 text-yellow-500 dark:bg-yellow-900/20 cursor-wait' 
+              : isListening 
+                ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-900/20' 
+                : 'border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300'
         } transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500`}
       >
         <div className="flex items-center justify-center">
-          {isProcessing ? (
+          {isAudioPlaying ? (
+            <>
+              <span className="relative flex h-3 w-3 mr-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+              </span>
+              <span>Audio playing... Please wait</span>
+            </>
+          ) : isProcessing ? (
             <>
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

@@ -14,43 +14,41 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase for client-side
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-
-// We'll initialize this only on the client side when needed
+// Create a module-level variables with null values outside any condition blocks
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
 let googleProvider: GoogleAuthProvider | null = null;
 
-// Check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
-
-if (isBrowser) {
+// Initialize Firebase only on client side
+if (typeof window !== 'undefined') {
   try {
-    // Initialize Firebase
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    // Check for existing Firebase instances
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp();
+    }
     
-    // Initialize Authentication
+    // Initialize services
     auth = getAuth(app);
-    
-    // Initialize Firestore
     db = getFirestore(app);
-    
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }
-} else {
-  // Handling for server-side rendering - these won't be used
-  console.warn('Firebase is not initialized on server-side');
 }
 
 // Helper function to get Google provider
 export const getGoogleProvider = (): GoogleAuthProvider => {
-  if (!isBrowser) {
+  if (typeof window === 'undefined') {
     throw new Error('GoogleAuthProvider can only be used in browser environment');
   }
   
   if (!googleProvider) {
+    if (!app) {
+      throw new Error('Firebase app must be initialized before creating GoogleAuthProvider');
+    }
+    
     googleProvider = new GoogleAuthProvider();
     googleProvider.setCustomParameters({ prompt: 'select_account' });
   }
@@ -58,4 +56,5 @@ export const getGoogleProvider = (): GoogleAuthProvider => {
   return googleProvider;
 };
 
+// Export the instances and helper functions
 export { app, auth, db };

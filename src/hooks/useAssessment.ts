@@ -20,6 +20,15 @@ const isFirestoreAvailable = () => {
   return typeof window !== 'undefined' && db && typeof db !== 'undefined';
 };
 
+// Custom event for audio playback tracking
+const createAudioEvent = (eventName: string) => {
+  if (typeof window !== 'undefined') {
+    return new CustomEvent(eventName);
+  }
+  // Fallback for non-browser environments
+  return { type: eventName } as Event;
+};
+
 export function useAssessment() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Response[]>([]);
@@ -38,6 +47,7 @@ export function useAssessment() {
   const [canForceComplete, setCanForceComplete] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(userInfoQuestions[0]);
   const [firestoreAvailable, setFirestoreAvailable] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   
   // New state variables for Firebase integration
   const { currentUser } = useAuth();
@@ -516,6 +526,12 @@ export function useAssessment() {
   // Play audio for assistant responses (if using voice mode)
   const playAssistantResponse = async (text: string) => {
     try {
+      // Set audio playing state and dispatch event for components to react
+      setIsAudioPlaying(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(createAudioEvent('audio-playback-start'));
+      }
+      
       const response = await fetch('/api/openai/speech', {
         method: 'POST',
         headers: {
@@ -538,10 +554,22 @@ export function useAssessment() {
       source.start();
       
       return new Promise<void>((resolve) => {
-        source.onended = () => resolve();
+        source.onended = () => {
+          // Reset audio playing state and dispatch event
+          setIsAudioPlaying(false);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(createAudioEvent('audio-playback-end'));
+          }
+          resolve();
+        };
       });
     } catch (error) {
       console.error('Error playing audio:', error);
+      // Make sure to reset audio playing state even if there's an error
+      setIsAudioPlaying(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(createAudioEvent('audio-playback-end'));
+      }
       return Promise.resolve(); // Continue even if audio fails
     }
   };
@@ -608,6 +636,7 @@ export function useAssessment() {
     playAssistantResponse,
     resetAssessment,
     assessmentId,
-    firestoreAvailable
+    firestoreAvailable,
+    isAudioPlaying
   };
 }
