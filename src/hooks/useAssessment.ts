@@ -15,9 +15,9 @@ const MIN_QUESTIONS_THRESHOLD = 4;
 const MAX_USER_INFO_QUESTIONS = 3; // We'll only ask for name/role, industry, and org size
 
 // Helper to check if Firestore is initialized
-const isFirestoreAvailable = () => {
+const isFirestoreAvailable = (): boolean => {
   // Check if we're in a browser and db is properly initialized
-  return typeof window !== 'undefined' && db && typeof db !== 'undefined';
+  return typeof window !== 'undefined' && db !== null && typeof db !== 'undefined';
 };
 
 // Custom event for audio playback tracking
