@@ -12,6 +12,7 @@ Welcome to the documentation for the AI Maturity Assessment application. This in
 | [Developer Guide](developer-guide.md) | Technical documentation for developers working on the project |
 | [Setup Guide](setup-guide.md) | Detailed setup instructions for development and deployment |
 | [Firebase Configuration](firebase-config.md) | Guide for setting up Firebase for authentication and database |
+| [Authentication & Firebase Integration](auth-firebase-guide.md) | Detailed documentation on the implemented authentication and Firebase database integration |
 | [Deployment Guide](deployment-guide.md) | Comprehensive instructions for deploying to various environments |
 
 ## Quick Links
@@ -36,15 +37,24 @@ The application is built with:
 - **Frontend**: React, Next.js, TypeScript, Tailwind CSS
 - **AI Integration**: OpenAI API (GPT-4, Whisper, TTS)
 - **Backend**: Next.js API Routes
-- **Storage**: Currently localStorage, with Firebase planned for future implementation
+- **Authentication**: Firebase Authentication
+- **Database**: Firebase Firestore with localStorage fallback
 - **Email**: Resend API
+
+## Key Features
+
+- **Conversational Assessment**: Engaging chat-like interface for answering questions
+- **Voice Input**: Support for voice responses using browser APIs
+- **AI Analysis**: Advanced analysis of responses to determine maturity level
+- **Visual Results**: Clear visualization of maturity scores
+- **User Authentication**: Secure login and account management
+- **Assessment Storage**: Save and resume assessments across sessions and devices
+- **Dashboard**: View and manage past assessments
 
 ## Future Development
 
 The roadmap for this project includes:
 
-- User authentication with Firebase
-- Database storage for assessment history
 - Comparative analytics against industry benchmarks
 - Custom maturity roadmap generation
 - PDF export functionality

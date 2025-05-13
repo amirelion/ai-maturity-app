@@ -10,6 +10,9 @@ This application helps organizations evaluate their AI maturity across three key
 - Comprehensive maturity scoring across three dimensions
 - Visual representation of maturity levels
 - Personalized strengths and opportunities identification
+- User authentication and account management
+- Assessment storage and resumption across devices
+- Dashboard for viewing past assessments
 - Email delivery of detailed assessment results
 
 ## 📋 Table of Contents
@@ -21,9 +24,12 @@ This application helps organizations evaluate their AI maturity across three key
 - [Project Structure](#project-structure)
 - [Features and Usage](#features-and-usage)
   - [Assessment Flow](#assessment-flow)
+  - [User Authentication](#user-authentication)
+  - [Dashboard](#dashboard)
   - [Maturity Framework](#maturity-framework)
   - [Results and Recommendations](#results-and-recommendations)
 - [Technology Stack](#technology-stack)
+- [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -35,7 +41,7 @@ This application helps organizations evaluate their AI maturity across three key
 - Node.js (v18 or higher)
 - npm or yarn
 - OpenAI API key
-- Firebase project (optional for current version, will be required for upcoming features)
+- Firebase project with Authentication and Firestore enabled
 - Resend account for email functionality
 
 ### Installation
@@ -73,7 +79,7 @@ Create a `.env.local` file in the root directory with the following variables:
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_ORGANIZATION=your_openai_org_id (optional)
 
-# Firebase Configuration (prepared for future use)
+# Firebase Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
@@ -91,28 +97,36 @@ EMAIL_FROM=your_verified_email@domain.com
 
 ```
 ai-maturity-app/
-├── public/             # Static files
+├── public/                    # Static files
 ├── src/
-│   ├── app/            # Next.js app router pages
-│   │   ├── api/        # API routes
-│   │   ├── assessment/ # Assessment pages
-│   │   └── page.tsx    # Homepage
-│   ├── components/     # React components
-│   │   ├── assessment/ # Assessment-specific components
-│   │   └── ui/         # Reusable UI components
-│   ├── config/         # Application configuration
-│   ├── hooks/          # Custom React hooks
-│   ├── lib/            # Utility libraries
-│   ├── styles/         # Global styles
-│   ├── types/          # TypeScript type definitions
-│   └── utils/          # Helper functions
-├── .env.example        # Example environment variables
-├── .env.local          # Local environment variables (gitignored)
-├── next.config.js      # Next.js configuration
-├── package.json        # Project dependencies
-├── postcss.config.js   # PostCSS configuration
-├── tailwind.config.js  # Tailwind CSS configuration
-└── tsconfig.json       # TypeScript configuration
+│   ├── app/                   # Next.js app router pages
+│   │   ├── api/               # API routes
+│   │   ├── assessment/        # Assessment pages
+│   │   ├── dashboard/         # User dashboard
+│   │   ├── login/             # Authentication pages
+│   │   ├── profile/           # User profile page
+│   │   └── page.tsx           # Homepage
+│   ├── components/            # React components
+│   │   ├── assessment/        # Assessment-specific components
+│   │   ├── auth/              # Authentication components
+│   │   └── ui/                # Reusable UI components
+│   ├── config/                # Application configuration
+│   ├── contexts/              # React contexts (Auth)
+│   ├── hooks/                 # Custom React hooks
+│   ├── lib/                   # Utility libraries
+│   │   ├── auth.ts            # Authentication utilities
+│   │   └── firebase.ts        # Firebase configuration
+│   ├── styles/                # Global styles
+│   ├── types/                 # TypeScript type definitions
+│   └── utils/                 # Helper functions
+├── docs/                      # Documentation
+├── .env.example               # Example environment variables
+├── .env.local                 # Local environment variables (gitignored)
+├── next.config.js             # Next.js configuration
+├── package.json               # Project dependencies
+├── postcss.config.js          # PostCSS configuration
+├── tailwind.config.js         # Tailwind CSS configuration
+└── tsconfig.json              # TypeScript configuration
 ```
 
 ## 💡 Features and Usage
@@ -131,6 +145,32 @@ ai-maturity-app/
 4. **AI Analysis**: Responses are analyzed in real-time by AI to understand the organization's maturity level.
 
 5. **Results Generation**: After completing the assessment, the application generates a comprehensive maturity report.
+
+### User Authentication
+
+The application provides a complete authentication system:
+
+1. **User Registration**: New users can create accounts with email and password.
+
+2. **Login**: Existing users can sign in to access their assessments.
+
+3. **Password Recovery**: Users can reset their passwords via email.
+
+4. **Profile Management**: Users can update their profile information.
+
+5. **Session Persistence**: Authentication state persists across page refreshes.
+
+### Dashboard
+
+Authenticated users have access to a dashboard that provides:
+
+1. **Assessment Overview**: List of all completed and in-progress assessments.
+
+2. **Assessment Management**: Options to view, resume, or delete assessments.
+
+3. **Quick Access**: Direct links to view results or continue assessments.
+
+4. **Status Indicators**: Visual indicators for assessment status and completion date.
 
 ### Maturity Framework
 
@@ -158,21 +198,31 @@ The assessment provides:
 - **Frontend**: React, Next.js, TypeScript, Tailwind CSS
 - **AI Integration**: OpenAI API (GPT-4 for analysis, Whisper for voice transcription)
 - **Backend**: Next.js API Routes
-- **Authentication**: Firebase Auth (prepared for future implementation)
-- **Database**: Firebase Firestore (prepared for future implementation)
+- **Authentication**: Firebase Authentication
+- **Database**: Firebase Firestore with localStorage fallback
 - **Email**: Resend API
+
+## 📚 Documentation
+
+Detailed documentation is available in the `/docs` directory:
+
+- [User Guide](docs/user-guide.md): Instructions for end users
+- [Developer Guide](docs/developer-guide.md): Technical documentation
+- [Auth & Firebase Integration](docs/auth-firebase-guide.md): Authentication and database implementation
+- [Setup Guide](docs/setup-guide.md): Detailed setup instructions
+- [Deployment Guide](docs/deployment-guide.md): Deployment instructions
 
 ## 🛣️ Roadmap
 
 Future enhancements planned for this application:
 
-- User authentication with Firebase
-- Storing assessment history in Firestore database
 - Comparative analytics against industry benchmarks
 - Custom maturity roadmap with actionable recommendations
 - PDF export functionality
 - Team collaboration features
 - Progress tracking for reassessments
+- Advanced analytics and reporting
+- Integration with enterprise systems
 
 ## 🤝 Contributing
 
@@ -183,6 +233,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## 📄 License
 
