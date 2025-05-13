@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { maturityFramework } from '@/config/ai-config'
@@ -45,7 +45,18 @@ const defaultOpportunities = {
   ]
 };
 
-export default function ResultsPage() {
+// Loading fallback for the Suspense boundary
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto"></div>
+      <p className="mt-4 text-gray-600 dark:text-gray-400">Loading assessment results...</p>
+    </div>
+  </div>
+);
+
+// Component that uses useSearchParams
+function ResultsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const assessmentId = searchParams.get('id')
@@ -491,5 +502,14 @@ export default function ResultsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Create the main component with Suspense
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ResultsContent />
+    </Suspense>
   )
 }

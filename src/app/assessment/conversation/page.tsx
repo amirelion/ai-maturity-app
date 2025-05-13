@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAssessment } from '@/hooks/useAssessment'
 import VoiceRecorder from '@/components/assessment/VoiceRecorder'
 
-export default function ConversationPage() {
+// Wrap the component that uses useSearchParams in a Suspense boundary
+function ConversationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const assessmentId = searchParams.get('id')
@@ -240,5 +241,22 @@ export default function ConversationPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Loading fallback for the Suspense boundary
+const LoadingFallback = () => (
+  <div className="flex flex-col h-screen max-h-screen bg-gray-50 dark:bg-gray-900 pt-16 items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading conversation...</p>
+  </div>
+);
+
+// Create the main component with Suspense
+export default function ConversationPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ConversationContent />
+    </Suspense>
   )
 }

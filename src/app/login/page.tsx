@@ -1,13 +1,21 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import Link from 'next/link';
 
-export default function LoginPage() {
+// Loading fallback for the Suspense boundary
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+  </div>
+);
+
+// Component that uses useSearchParams
+function LoginContent() {
   const { currentUser, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,5 +71,14 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Create the main component with Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }
