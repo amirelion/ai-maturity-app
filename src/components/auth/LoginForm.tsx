@@ -59,7 +59,17 @@ export default function LoginForm({ onSuccess, onSignUpClick }: LoginFormProps) 
       }
     } catch (err: any) {
       console.error('Google login error:', err);
-      setError(err.message || 'Failed to sign in with Google. Please try again.');
+      
+      // Handle configuration errors specifically
+      if (err.message && (
+        err.message.includes('invalid-api-key') ||
+        err.message.includes('app is not initialized') ||
+        err.message.includes('Firebase auth is not initialized')
+      )) {
+        setError('Authentication service is misconfigured. Please contact support.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
