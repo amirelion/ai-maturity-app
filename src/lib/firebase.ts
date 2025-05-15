@@ -16,21 +16,47 @@ const firebaseConfig = {
 
 // Check if Firebase config is valid
 const isFirebaseConfigValid = (): boolean => {
-  const requiredKeys = [
-    'apiKey',
-    'authDomain',
-    'projectId',
-    'storageBucket',
-    'messagingSenderId',
-    'appId'
-  ];
+  // Using type assertion to make TypeScript happy
+  if (!firebaseConfig.apiKey || 
+      firebaseConfig.apiKey === 'your_firebase_api_key_here' || 
+      firebaseConfig.apiKey.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: apiKey');
+    return false;
+  }
   
-  for (const key of requiredKeys) {
-    const value = firebaseConfig[key];
-    if (!value || value === `your_firebase_${key}_here` || value.includes('XXXXX')) {
-      console.error(`Missing or invalid Firebase config: ${key}`);
-      return false;
-    }
+  if (!firebaseConfig.authDomain || 
+      firebaseConfig.authDomain === 'your_firebase_auth_domain_here' || 
+      firebaseConfig.authDomain.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: authDomain');
+    return false;
+  }
+  
+  if (!firebaseConfig.projectId || 
+      firebaseConfig.projectId === 'your_firebase_project_id_here' || 
+      firebaseConfig.projectId.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: projectId');
+    return false;
+  }
+  
+  if (!firebaseConfig.storageBucket || 
+      firebaseConfig.storageBucket === 'your_firebase_storage_bucket_here' || 
+      firebaseConfig.storageBucket.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: storageBucket');
+    return false;
+  }
+  
+  if (!firebaseConfig.messagingSenderId || 
+      firebaseConfig.messagingSenderId === 'your_firebase_messaging_sender_id_here' || 
+      firebaseConfig.messagingSenderId.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: messagingSenderId');
+    return false;
+  }
+  
+  if (!firebaseConfig.appId || 
+      firebaseConfig.appId === 'your_firebase_app_id_here' || 
+      firebaseConfig.appId.includes('XXXXX')) {
+    console.error('Missing or invalid Firebase config: appId');
+    return false;
   }
   
   return true;
