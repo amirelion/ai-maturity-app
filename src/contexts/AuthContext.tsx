@@ -53,6 +53,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error('Error managing user profile in Firestore:', error);
+          // Store minimal user info in localStorage as fallback
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('userProfile', JSON.stringify({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              lastLoginAt: new Date().toISOString()
+            }));
+          }
+        }
+      } else if (user && !db) {
+        console.warn('User logged in but Firestore is not available, using localStorage fallback');
+        // Store minimal user info in localStorage as fallback
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('userProfile', JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            lastLoginAt: new Date().toISOString()
+          }));
         }
       }
       

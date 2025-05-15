@@ -90,7 +90,15 @@ try {
     // Initialize services (but only in browser environment)
     if (typeof window !== 'undefined') {
       auth = getAuth(app);
-      db = getFirestore(app);
+      
+      // Initialize Firestore with proper error handling
+      try {
+        db = getFirestore(app);
+        console.log('Firestore initialized successfully');
+      } catch (firestoreError) {
+        console.error('Error initializing Firestore:', firestoreError);
+        // Don't throw error, just log it - app can still function without Firestore
+      }
     }
   } else {
     console.error('Firebase initialization skipped due to invalid configuration. Please check your environment variables in Vercel project settings.');
