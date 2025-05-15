@@ -61,7 +61,7 @@ function ConversationContent() {
 
   // Play the last assistant message if in voice mode - with improved handling
   useEffect(() => {
-    // Reset the played flag when new messages are added
+    // If conversation changes, check if we need to play the last message
     if (conversation.length > 0) {
       const lastMessage = conversation[conversation.length - 1];
       
@@ -76,6 +76,7 @@ function ConversationContent() {
         !playedLastMessageRef.current && 
         !isAudioPlaying
       ) {
+        console.log("Playing assistant message:", lastMessage.content.substring(0, 30) + "...");
         // Set the flag to prevent repeated playback
         playedLastMessageRef.current = true;
         
@@ -83,15 +84,14 @@ function ConversationContent() {
         playAssistantResponse(lastMessage.content);
       }
     }
-  }, [isVoiceMode, conversation, playAssistantResponse, isAudioPlaying]);
+  }, [conversation, isVoiceMode, playAssistantResponse, isAudioPlaying]);
 
   // Reset the played flag when audio playback ends
   useEffect(() => {
     const handleAudioEnd = () => {
       // After audio playback completes, we can set the flag to false so the next message can play
-      if (!isAudioPlaying) {
-        playedLastMessageRef.current = false;
-      }
+      console.log("Audio playback ended, resetting flag");
+      playedLastMessageRef.current = false;
     };
     
     // This will trigger when audio playback ends
@@ -100,7 +100,7 @@ function ConversationContent() {
     return () => {
       window.removeEventListener('audio-playback-end', handleAudioEnd);
     };
-  }, [isAudioPlaying]);
+  }, []);
 
   const handleSendMessage = () => {
     if (input.trim() === '' || isLoading) return

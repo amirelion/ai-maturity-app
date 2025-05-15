@@ -23,6 +23,7 @@ const isFirestoreAvailable = (): boolean => {
 // Custom event for audio playback tracking
 const createAudioEvent = (eventName: string) => {
   if (typeof window !== 'undefined') {
+    console.log(`Creating event: ${eventName}`);
     return new CustomEvent(eventName);
   }
   // Fallback for non-browser environments
@@ -551,6 +552,7 @@ export function useAssessment() {
       try {
         audioSourceRef.current.stop();
         audioSourceRef.current = null;
+        console.log("Audio stopped manually");
       } catch (err) {
         console.error('Error stopping audio:', err);
       }
@@ -574,6 +576,7 @@ export function useAssessment() {
     try {
       // Set audio playing state and dispatch event for components to react
       setIsAudioPlaying(true);
+      console.log("Starting audio playback");
       if (typeof window !== 'undefined') {
         window.dispatchEvent(createAudioEvent('audio-playback-start'));
       }
@@ -601,7 +604,7 @@ export function useAssessment() {
       }
       
       // Create a new audio context
-      const audioContext = new AudioContext();
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       audioContextRef.current = audioContext;
       
       const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
@@ -612,20 +615,20 @@ export function useAssessment() {
       source.connect(audioContext.destination);
       
       // Set up onended handler before starting playback
-      return new Promise<void>((resolve) => {
-        source.onended = () => {
-          // Reset audio playing state and dispatch event
-          setIsAudioPlaying(false);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(createAudioEvent('audio-playback-end'));
-          }
-          audioSourceRef.current = null;
-          resolve();
-        };
-        
-        // Start audio playback
-        source.start();
-      });
+      source.onended = () => {
+        // Reset audio playing state and dispatch event
+        console.log("Audio ended naturally");
+        setIsAudioPlaying(false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(createAudioEvent('audio-playback-end'));
+        }
+        audioSourceRef.current = null;
+      };
+      
+      // Start audio playback
+      source.start();
+      return Promise.resolve();
+      
     } catch (error) {
       console.error('Error playing audio:', error);
       // Make sure to reset audio playing state even if there's an error
