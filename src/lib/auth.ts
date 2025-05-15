@@ -51,11 +51,13 @@ export async function signInWithGoogle() {
       throw new Error('Google sign-in is only available in browser environments');
     }
     
-    const googleProvider = getGoogleProvider();
-    
+    // Get the Firebase auth instance first
     if (!auth) {
       throw new Error('Firebase auth is not initialized');
     }
+    
+    // Only get the Google provider after confirming auth is initialized
+    const googleProvider = getGoogleProvider();
     
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;

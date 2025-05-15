@@ -42,9 +42,14 @@ export default function LoginForm({ onSuccess, onSignUpClick }: LoginFormProps) 
     setIsLoading(true);
 
     try {
+      // Make sure we're in a browser environment
       if (typeof window === 'undefined') {
         throw new Error('Google sign-in is only available in browser environments');
       }
+      
+      // Wait for the window to fully load and Firebase to initialize
+      // Add a small delay to ensure Firebase initialization completes
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       await signInWithGoogle();
       if (onSuccess) {
