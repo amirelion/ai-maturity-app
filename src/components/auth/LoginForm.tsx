@@ -41,6 +41,14 @@ export default function LoginForm({ onSuccess, onSignUpClick }: LoginFormProps) 
     setError('');
     setIsLoading(true);
 
+    // Add debugging info for the domain issue
+    console.log('Current URL:', window.location.href);
+    console.log('Current Origin:', window.location.origin);
+    console.log('Firebase Config:', {
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      apiKeyValid: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    });
+
     try {
       // Make sure we're in a browser environment
       if (typeof window === 'undefined') {
@@ -67,6 +75,9 @@ export default function LoginForm({ onSuccess, onSignUpClick }: LoginFormProps) 
         err.message.includes('Firebase auth is not initialized')
       )) {
         setError('Authentication service is misconfigured. Please contact support.');
+      } else if (err.message && err.message.includes('unauthorized-domain')) {
+        console.error('Unauthorized domain error. Domain not in Firebase allowlist.');
+        setError('This domain is not authorized for authentication. This is a configuration issue that needs to be resolved by the administrator.');
       } else {
         setError(err.message || 'Failed to sign in with Google. Please try again.');
       }

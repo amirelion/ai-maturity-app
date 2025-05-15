@@ -51,16 +51,35 @@ export async function signInWithGoogle() {
       throw new Error('Google sign-in is only available in browser environments');
     }
     
+    // Add detailed debugging information
+    console.log('Attempting Google sign-in');
+    console.log('Current location:', window.location.toString());
+    
     // Get the Firebase auth instance first
     if (!auth) {
+      console.error('Firebase auth is null during Google sign-in');
       throw new Error('Firebase auth is not initialized');
     }
     
     // Only get the Google provider after confirming auth is initialized
     const googleProvider = getGoogleProvider();
+    console.log('Google provider created successfully');
     
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    // Log auth settings for debugging
+    console.log('Auth settings:', {
+      authDomain: auth.app.options.authDomain,
+      currentUrl: window.location.origin,
+      providerId: googleProvider.providerId
+    });
+    
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log('Google sign-in successful');
+      return result.user;
+    } catch (error) {
+      console.error('Error in signInWithPopup:', error);
+      throw error;
+    }
   } catch (error: any) {
     console.error('Error signing in with Google:', error);
     throw new Error(error.message || 'An error occurred during Google sign in');
