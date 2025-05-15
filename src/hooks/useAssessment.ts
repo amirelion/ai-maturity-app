@@ -20,16 +20,6 @@ const isFirestoreAvailable = (): boolean => {
   return typeof window !== 'undefined' && db !== null && typeof db !== 'undefined';
 };
 
-// Custom event for audio playback tracking
-const createAudioEvent = (eventName: string) => {
-  if (typeof window !== 'undefined') {
-    console.log(`Creating event: ${eventName}`);
-    return new CustomEvent(eventName);
-  }
-  // Fallback for non-browser environments
-  return { type: eventName } as Event;
-};
-
 export function useAssessment() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Response[]>([]);
@@ -49,8 +39,7 @@ export function useAssessment() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(userInfoQuestions[0]);
   const [firestoreAvailable, setFirestoreAvailable] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // New state variables for Firebase integration
   const { currentUser } = useAuth();
@@ -548,10 +537,10 @@ export function useAssessment() {
   
   // Stop any currently playing audio
   const stopAudio = useCallback(() => {
-    if (audioSourceRef.current) {
+    if (audioRef.current) {
       try {
-        audioSourceRef.current.stop();
-        audioSourceRef.current = null;
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
         console.log("Audio stopped manually");
       } catch (err) {
         console.error('Error stopping audio:', err);
@@ -560,7 +549,7 @@ export function useAssessment() {
     
     setIsAudioPlaying(false);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(createAudioEvent('audio-playback-end'));
+      window.dispatchEvent(new CustomEvent('audio-playback-end'));
     }
   }, []);
   
@@ -574,12 +563,9 @@ export function useAssessment() {
     }
     
     try {
-      // Set audio playing state and dispatch event for components to react
+      // Set audio playing state
       setIsAudioPlaying(true);
-      console.log("Starting audio playback");
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(createAudioEvent('audio-playback-start'));
-      }
+      console.log("Starting audio playback for text:", text.substring(0, 30) + "...");
       
       const response = await fetch('/api/openai/speech', {
         method: 'POST',
@@ -595,73 +581,55 @@ export function useAssessment() {
       
       const audioArrayBuffer = await response.arrayBuffer();
       
-      // Close any existing audio context to prevent memory leaks
-      if (audioContextRef.current) {
-        if (audioContextRef.current.state !== 'closed') {
-          await audioContextRef.current.close();
-        }
-        audioContextRef.current = null;
-      }
+      // Use the HTML Audio element
+      const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
       
-      // Create a new audio context
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = audioContext;
+      // Create a new audio element
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
       
-      const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
-      
-      const source = audioContext.createBufferSource();
-      audioSourceRef.current = source;
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      
-      // Set up onended handler before starting playback
-      source.onended = () => {
-        // Reset audio playing state and dispatch event
+      // Set up event handlers
+      audio.onended = () => {
         console.log("Audio ended naturally");
         setIsAudioPlaying(false);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(createAudioEvent('audio-playback-end'));
-        }
-        audioSourceRef.current = null;
+        window.dispatchEvent(new CustomEvent('audio-playback-end'));
+        // Clean up the blob URL
+        URL.revokeObjectURL(audioUrl);
       };
       
-      // Start audio playback
-      source.start();
-      return Promise.resolve();
+      audio.onerror = () => {
+        console.error("Audio playback error");
+        setIsAudioPlaying(false);
+        window.dispatchEvent(new CustomEvent('audio-playback-end'));
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      // Start playing
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("Audio playback started successfully");
+            window.dispatchEvent(new CustomEvent('audio-playback-start'));
+          })
+          .catch((error) => {
+            console.error("Error starting audio playback:", error);
+            setIsAudioPlaying(false);
+            window.dispatchEvent(new CustomEvent('audio-playback-end'));
+            URL.revokeObjectURL(audioUrl);
+          });
+      }
       
     } catch (error) {
-      console.error('Error playing audio:', error);
-      // Make sure to reset audio playing state even if there's an error
+      console.error('Error in playAssistantResponse:', error);
       setIsAudioPlaying(false);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(createAudioEvent('audio-playback-end'));
-      }
-      audioSourceRef.current = null;
-      return Promise.resolve(); // Continue even if audio fails
+      window.dispatchEvent(new CustomEvent('audio-playback-end'));
     }
+    
+    return Promise.resolve();
   }, [isAudioPlaying, stopAudio]);
-  
-  // Clean up audio resources on unmount
-  useEffect(() => {
-    return () => {
-      if (audioSourceRef.current) {
-        try {
-          audioSourceRef.current.stop();
-        } catch (err) {
-          // Ignore errors when stopping on unmount
-        }
-        audioSourceRef.current = null;
-      }
-      
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        try {
-          audioContextRef.current.close();
-        } catch (err) {
-          // Ignore errors when closing context on unmount
-        }
-      }
-    };
-  }, []);
   
   // Reset the assessment
   const resetAssessment = async () => {
